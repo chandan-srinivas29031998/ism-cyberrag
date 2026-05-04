@@ -194,7 +194,7 @@ Full list of environment variables used by the application. All are set in `.env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OOS_PRE_FILTER_ENABLED` | `true` | Enable or disable the keyword/intent pre-filter |
-| `OOS_RERANK_THRESHOLD` | `0.5` | Minimum max rerank score to proceed to LLM generation. Questions where the best chunk scores below this are blocked. |
+| `OOS_RERANK_THRESHOLD` | `-5.0` | Minimum max rerank score to proceed to LLM generation. Questions where the best chunk scores below this are blocked. Calibrated from Sprint 2 to avoid blocking known in-scope questions; obvious vendor/code/pricing OOS cases are handled by the pre-filter. |
 
 ### Evaluation (notebook only, not needed on HF Spaces)
 

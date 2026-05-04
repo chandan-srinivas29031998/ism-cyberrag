@@ -139,7 +139,7 @@ User question
   -> Hybrid search for each variant (BM25 + vector + RRF)
   -> Deduplicate by chunk ID
   -> Cross-encoder reranking against original question (top 5)
-  -> Stage 2: Rerank threshold check (max score >= 0.5)
+  -> Stage 2: Rerank threshold check (max score >= -5.0)
   -> LLM generation with top 5 chunks as context (Llama 3.1 8B)
 ```
 

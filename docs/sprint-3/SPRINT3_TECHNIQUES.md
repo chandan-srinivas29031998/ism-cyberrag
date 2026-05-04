@@ -15,16 +15,16 @@ This document explains what we implemented in Sprint 3, why we made each decisio
 
 **Implementation:** `src/query_expansion.py`, `src/retrieval.py` (multi_query_retrieve function).
 
-**JSON parsing fix:** LLMs sometimes wrap JSON output in markdown code fences (` ```json ... ``` `). We strip these before parsing to avoid silent fallback to single-query mode.
+**Error handling:** LLMs sometimes wrap JSON output in markdown code fences (` ```json ... ``` `), return too many variants, or fail due to a provider/network issue. We strip code fences, cap results to the configured count, deduplicate variants, and fall back to the original query if expansion fails. This keeps long evaluation runs moving instead of failing an entire row.
 
 
 ## 2. Two-stage out-of-scope guardrail
 
 **What it does:** Two filtering stages that block irrelevant questions before they waste API calls.
 
-Stage 1 (pre-filter): Regex-based keyword matching. A deny list of ~100 patterns catches obviously off-topic queries (recipes, stock prices, sports scores, etc.). An allow list of ~85 ISM/security terms fast-tracks relevant queries. If neither list matches, the question passes through as "uncertain" and gets the benefit of the doubt.
+Stage 1 (pre-filter): Regex-based keyword matching. A deny list catches obviously off-topic queries (recipes, stock prices, sports scores, vendor-specific commands, exploit code, code/script requests, product pricing, and platform setup instructions). An allow list of ISM/security terms fast-tracks relevant queries. If neither list matches, the question passes through as "uncertain" and gets the benefit of the doubt.
 
-Stage 2 (rerank threshold): After the cross-encoder reranks all candidate chunks, we check the highest rerank score. If even the best chunk scored below 0.5, the question is blocked. This catches queries that are topically adjacent to security but not covered by the ISM (e.g., vendor-specific firewall configs).
+Stage 2 (rerank threshold): After the cross-encoder reranks all candidate chunks, we check the highest rerank score. If even the best chunk scored below -5.0, the question is blocked. This catches weak retrieval matches while avoiding false refusals on known hard in-scope ISM questions; obvious vendor-specific, code/script, exploit, setup and pricing questions are handled earlier by the pre-filter.
 
 **Why we built it:** Sprint 2 relied entirely on the LLM system prompt to refuse OOS questions. This had two problems: it wasted a Groq API call on every junk query, and the LLM occasionally tried to answer borderline OOS questions instead of refusing. The guardrail catches OOS questions earlier and more reliably.
 
@@ -85,7 +85,7 @@ Here is what happens for each metric when the answer is a refusal:
 
 In Sprint 2, we did not handle this because we did not have OOS guardrails, so OOS questions sometimes got partial (hallucinated) answers that produced non-NaN scores. Sprint 3's guardrail produces consistent refusals, which exposes the NaN problem.
 
-**Our approach:** In `src/evaluation.py`, after RAGAS computes per-question scores, we fill NaN values for faithfulness, answer_relevancy, and context_recall with 1.0. The reasoning: a correct refusal makes zero unsupported claims (not unfaithful), correctly declines to answer an unanswerable question (relevant behavior), and the lack of context recall is expected (the ISM does not cover the topic).
+**Our approach:** In `src/evaluation.py`, after RAGAS computes per-question scores, we only adjust rows that are labelled `out_of_scope` and actually produced the standard refusal message. For those correct refusals, faithfulness, answer_relevancy, and context_recall are set to 1.0 when RAGAS returns NaN or a lower refusal penalty. The reasoning: a correct refusal makes zero unsupported claims (not unfaithful), correctly declines to answer an unanswerable question (relevant behavior), and the lack of context recall is expected (the ISM does not cover the topic).
 
 We do NOT fill context_precision (0.0 is correct, the retriever found nothing useful) or answer_similarity (it already produces a meaningful score).
 

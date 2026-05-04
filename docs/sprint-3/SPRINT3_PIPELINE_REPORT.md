@@ -41,7 +41,7 @@ Sprint 2 relied entirely on the LLM system prompt to refuse out-of-scope questio
 
 The `pre_filter()` function checks the question against two lists:
 
-- A deny list of regex patterns for clearly off-topic terms: recipe, stock price, weather, sports scores, horoscope, dating, and similar. If any pattern matches, the question is immediately blocked with a standard refusal message.
+- A deny list of regex patterns for clearly off-topic terms: recipe, stock price, weather, sports scores, horoscope, dating, vendor-specific commands, exploit code, code/script requests, product pricing, platform setup instructions, and similar. If any pattern matches, the question is immediately blocked with a standard refusal message.
 - An allow list of security-related signals: ism, encryption, firewall, authentication, mfa, essential eight, asd, acsc, and about 30 others. If any signal is found, the question passes through.
 - If neither list matches, the question passes through with an "uncertain" label. The system gives the benefit of the doubt rather than blocking ambiguous queries.
 
@@ -51,14 +51,14 @@ This stage is fast (string matching, no model calls) and catches the most obviou
 
 After the cross-encoder scores all candidate chunks, the `rerank_threshold_check()` function looks at the highest rerank score in the result set. If the best-scoring chunk is below the threshold, the question is blocked. The logic is simple: if even the best chunk the retriever found is a poor match, the LLM has nothing useful to work with.
 
-This catches questions that are topically adjacent to security (so they pass the pre-filter) but are not actually covered by the ISM. For example, "How do I configure a Cisco ASA firewall?" contains security terms and would pass Stage 1, but the ISM does not cover vendor-specific configurations, so all retrieved chunks would score poorly.
+This catches questions that are topically adjacent to security (so they pass the pre-filter) but are not actually covered by the ISM. The threshold is intentionally conservative because Sprint 2 showed a small number of very hard in-scope questions with low raw reranker scores. Known vendor/code/pricing OOS patterns are handled by Stage 1 so the score threshold does not need to block borderline valid ISM questions.
 
 **Configuration:**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OOS_PRE_FILTER_ENABLED` | `true` | Toggle the pre-filter on/off |
-| `OOS_RERANK_THRESHOLD` | `0.5` | Minimum max rerank score to proceed to LLM |
+| `OOS_RERANK_THRESHOLD` | `-5.0` | Minimum max rerank score to proceed to LLM |
 
 
 ## Updated pipeline flow
