@@ -19,7 +19,8 @@
             
             <nav class="main-nav">
                 <a href="/" class="active">Search ISM</a>
-                <!-- <a href="/evaluations">Performance Evaluations</a> -->
+                <a href="/pipeline">Pipeline Explorer</a>
+                <a href="/evaluations">Evaluations</a>
             </nav>
         </header>
     </div>
@@ -55,8 +56,21 @@
                 </form>
             </div>
 
+            <!-- Query Expansion Display -->
+            <div id="query-expansion" class="query-expansion" style="display:none;">
+                <div class="expansion-toggle" onclick="this.parentElement.classList.toggle('expanded')">
+                    <span class="expansion-label">Query Expansion</span>
+                    <span id="expansion-count" class="badge-count">0</span>
+                    <span class="expansion-arrow">&#9662;</span>
+                </div>
+                <div class="expansion-body">
+                    <ul id="expansion-list"></ul>
+                </div>
+            </div>
+
             <!-- Results Section -->
             <div id="answer-section" class="answer-section">
+                <div id="guardrail-badge" class="guardrail-badge" style="display:none;"></div>
                 <h3 class="answer-header">Response</h3>
                 <div id="answer-text" class="answer-text">
                     <!-- LLM Answer goes here -->
@@ -90,8 +104,11 @@
         const citationsList = document.getElementById('citations-list');
         const emptyState = document.getElementById('empty-state');
         const chunkCount = document.getElementById('chunk-count');
+        const queryExpansion = document.getElementById('query-expansion');
+        const expansionList = document.getElementById('expansion-list');
+        const expansionCount = document.getElementById('expansion-count');
+        const guardrailBadge = document.getElementById('guardrail-badge');
 
-        // Simple formatter
         function formatText(text) {
             if (!text) return "";
             return text.split('\n\n').map(p => {
@@ -105,14 +122,17 @@
             const question = questionInput.value.trim();
             if (!question) return;
 
-            // UI Loading State
             btnText.style.display = 'none';
             loading.style.display = 'inline-block';
             submitBtn.disabled = true;
-            
+
             answerSection.style.display = 'none';
             citationsList.innerHTML = '';
             chunkCount.style.display = 'none';
+            queryExpansion.style.display = 'none';
+            queryExpansion.classList.remove('expanded');
+            expansionList.innerHTML = '';
+            guardrailBadge.style.display = 'none';
 
             try {
                 const response = await fetch('/chat', {
@@ -122,19 +142,36 @@
                 });
 
                 if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
                 const data = await response.json();
 
-                // Display Answer
+                // Display query expansion variants
+                if (data.query_variants && data.query_variants.length > 1) {
+                    expansionList.innerHTML = '';
+                    data.query_variants.forEach((q, i) => {
+                        const li = document.createElement('li');
+                        li.textContent = q;
+                        if (i === 0) li.innerHTML = `<strong>${q}</strong> <span class="tag control">original</span>`;
+                        expansionList.appendChild(li);
+                    });
+                    expansionCount.textContent = data.query_variants.length;
+                    queryExpansion.style.display = 'block';
+                }
+
+                // Display guardrail badge if blocked
+                if (data.guardrail_stage) {
+                    const stage = data.guardrail_stage === 'pre_filter' ? 'Pre-Filter' : 'Rerank Threshold';
+                    guardrailBadge.innerHTML = `Blocked by OOS Guardrail: ${stage}`;
+                    guardrailBadge.style.display = 'block';
+                }
+
                 answerText.innerHTML = formatText(data.answer);
                 answerSection.style.display = 'block';
 
-                // Display Citations
                 if (data.chunks && data.chunks.length > 0) {
                     emptyState.style.display = 'none';
                     chunkCount.textContent = data.chunks.length;
                     chunkCount.style.display = 'inline-block';
-                    
+
                     data.chunks.forEach((chunk, i) => {
                         const card = document.createElement('div');
                         card.className = 'citation-card';
@@ -143,10 +180,10 @@
                         if (chunk.control_id) tagsHtml += `<span class="tag control">${chunk.control_id}</span>`;
                         if (chunk.category) tagsHtml += `<span class="tag category">${chunk.category}</span>`;
 
-                        let scoresHtml = chunk.rerank_score != null 
-                            ? `Rerank Score: <strong>${chunk.rerank_score.toFixed(3)}</strong>` 
+                        let scoresHtml = chunk.rerank_score != null
+                            ? `Rerank Score: <strong>${chunk.rerank_score.toFixed(3)}</strong>`
                             : '';
-                        
+
                         card.innerHTML = `
                             <div class="citation-meta">${tagsHtml}</div>
                             <div class="citation-scores">${scoresHtml}</div>

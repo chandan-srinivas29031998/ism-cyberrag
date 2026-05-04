@@ -3,23 +3,288 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evaluations | Informational Security Manual</title>
+    <title>Evaluations | ISM CyberRAG</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Evaluations page styles */
+        .eval-section {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        .eval-section h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-navy);
+            margin-bottom: 0.5rem;
+        }
+
+        .eval-section .section-desc {
+            color: var(--text-grey);
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Comparison Table */
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+
+        .metrics-table thead th {
+            background: var(--primary-navy);
+            color: var(--text-white);
+            padding: 0.85rem 1.2rem;
+            text-align: left;
+            font-weight: 700;
+            font-size: 0.9rem;
+            letter-spacing: 0.3px;
+        }
+
+        .metrics-table thead th:first-child {
+            border-radius: 4px 0 0 0;
+        }
+
+        .metrics-table thead th:last-child {
+            border-radius: 0 4px 0 0;
+        }
+
+        .metrics-table tbody td {
+            padding: 0.8rem 1.2rem;
+            border-bottom: 1px solid var(--border-grey);
+        }
+
+        .metrics-table tbody tr:nth-child(even) {
+            background: var(--bg-light-grey);
+        }
+
+        .metrics-table tbody tr:hover {
+            background: #e8edf3;
+        }
+
+        .metrics-table .metric-name {
+            font-weight: 600;
+            color: var(--primary-navy);
+        }
+
+        .metrics-table .val-green {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+
+        .metrics-table .val-red {
+            color: #c62828;
+            font-weight: 600;
+        }
+
+        .metrics-table .val-neutral {
+            color: var(--text-grey);
+            font-weight: 500;
+        }
+
+        .metrics-table .val-pending {
+            color: var(--text-grey);
+            font-style: italic;
+        }
+
+        .table-note {
+            font-size: 0.85rem;
+            color: var(--text-grey);
+            margin-top: 0.5rem;
+        }
+
+        /* Sprint Cards */
+        .sprint-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        .sprint-card {
+            border: 1px solid var(--border-grey);
+            border-radius: 6px;
+            padding: 1.5rem;
+            background: var(--bg-white);
+            border-top: 4px solid var(--primary-navy);
+        }
+
+        .sprint-card h3 {
+            font-size: 1.1rem;
+            color: var(--primary-navy);
+            margin-bottom: 0.3rem;
+        }
+
+        .sprint-card .sprint-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-grey);
+            margin-bottom: 0.75rem;
+        }
+
+        .sprint-card p {
+            font-size: 0.95rem;
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        /* Charts Grid */
+        .charts-section {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 3rem;
+        }
+
+        .charts-section h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-navy);
+            margin-bottom: 0.5rem;
+        }
+
+        .charts-section .section-desc {
+            color: var(--text-grey);
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        .charts-subsection {
+            margin-bottom: 2.5rem;
+        }
+
+        .charts-subsection h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--primary-navy);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border-grey);
+        }
+
+        .chart-grid-eval {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .chart-card-eval {
+            border: 1px solid var(--border-grey);
+            border-radius: 6px;
+            overflow: hidden;
+            background: var(--bg-white);
+        }
+
+        .chart-card-eval .chart-title {
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--primary-navy);
+            background: var(--bg-light-grey);
+            border-bottom: 1px solid var(--border-grey);
+        }
+
+        .chart-card-eval img {
+            width: 100%;
+            display: block;
+        }
+
+        .chart-card-eval .chart-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 250px;
+            background: var(--bg-light-grey);
+            color: var(--text-grey);
+            font-size: 0.9rem;
+            font-style: italic;
+            border: 1px dashed #ccc;
+            margin: 0.75rem;
+            border-radius: 4px;
+        }
+
+        .chart-wide {
+            grid-column: 1 / -1;
+        }
+
+        /* Image Lightbox */
+        .chart-card-eval img {
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+
+        .chart-card-eval img:hover {
+            opacity: 0.85;
+        }
+
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .lightbox-overlay.active {
+            display: flex;
+        }
+
+        .lightbox-overlay img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 6px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .lightbox-close {
+            position: fixed;
+            top: 1.5rem;
+            right: 2rem;
+            color: #fff;
+            font-size: 2rem;
+            font-weight: 700;
+            cursor: pointer;
+            z-index: 10000;
+            line-height: 1;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .sprint-cards {
+                grid-template-columns: 1fr;
+            }
+            .chart-grid-eval {
+                grid-template-columns: 1fr;
+            }
+            .chart-wide {
+                grid-column: auto;
+            }
+        }
+    </style>
 </head>
 <body style="overflow-y: auto;">
-    
+
     <!-- Top Header -->
     <div class="header-container">
-        <!-- Main Header -->
         <header class="main-header">
             <div class="brand-section">
                 <div class="brand-title">ISM CyberRAG</div>
                 <div class="brand-subtitle">Information Security Manual<br>Semantic Search Engine</div>
             </div>
-            
+
             <nav class="main-nav">
                 <a href="/">Search ISM</a>
-                <a href="/evaluations" class="active">Performance Evaluations</a>
+                <a href="/pipeline">Pipeline Explorer</a>
+                <a href="/evaluations" class="active">Evaluations</a>
             </nav>
         </header>
     </div>
@@ -27,35 +292,207 @@
     <!-- Hero Banner -->
     <div class="hero-banner" style="padding: 3rem 2rem;">
         <div class="hero-content">
-            <h1 style="font-size: 2.2rem;">System Performance Matrix</h1>
+            <h1 style="font-size: 2.4rem;">System Performance</h1>
             <p style="font-size: 1.1rem; max-width: 800px;">
-                Measuring the hybrid search and reranking architecture against 100 benchmark queries (90 in-scope, 10 out-of-scope) using RAGAS.
+                RAGAS evaluation metrics across three sprints, measured against 100 benchmark queries.
             </p>
         </div>
     </div>
 
-    <div class="evaluations-container">
-        <div class="chart-grid">
-            <div class="chart-card" style="grid-column: 1 / -1;">
-                <h3>Overall Quality Metrics (All vs In-Scope vs OOS)</h3>
-                <img src="/static/evaluations/sprint2_inscope_vs_oos.png" alt="RAGAS Metrics Comparison">
-            </div>
+    <!-- Sprint Comparison Table -->
+    <div class="eval-section">
+        <h2>Sprint Comparison</h2>
+        <p class="section-desc">
+            Each sprint was evaluated on the same set of 100 queries (90 in-scope ISM questions, 10 out-of-scope). Scores are RAGAS metric averages. Green means the sprint 3 target was met, red means it was not.
+        </p>
 
-            <div class="chart-card" style="grid-column: 1 / -1;">
-                <h3>Out-of-Scope (OOS) Handling Quality</h3>
-                <img src="/static/evaluations/sprint2_oos_detail.png" alt="OOS Rejection Quality">
-            </div>
+        <table class="metrics-table">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Sprint 1</th>
+                    <th>Sprint 2</th>
+                    <th>Sprint 3</th>
+                    <th>Target</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="metric-name">Faithfulness</td>
+                    <td class="val-red">0.6834</td>
+                    <td class="val-red">0.7341</td>
+                    <td class="val-pending">--</td>
+                    <td class="val-neutral">&gt; 0.78</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Answer Relevancy</td>
+                    <td class="val-red">0.7216</td>
+                    <td class="val-red">0.7678</td>
+                    <td class="val-pending">--</td>
+                    <td class="val-neutral">&gt; 0.82</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Context Precision</td>
+                    <td class="val-red">0.7885</td>
+                    <td class="val-green">0.8598</td>
+                    <td class="val-pending">--</td>
+                    <td class="val-neutral">&gt; 0.85</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Context Recall</td>
+                    <td class="val-red">0.8224</td>
+                    <td class="val-red">0.8659</td>
+                    <td class="val-pending">--</td>
+                    <td class="val-neutral">&gt; 0.91</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Answer Similarity</td>
+                    <td class="val-neutral">N/A</td>
+                    <td class="val-green">0.9057</td>
+                    <td class="val-pending">--</td>
+                    <td class="val-neutral">&gt; 0.93</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="table-note">
+            Sprint 1 answer similarity was not measured. Sprint 3 scores will be filled after evaluation runs complete.
+        </p>
+    </div>
 
-            <div class="chart-card">
-                <h3>Category Breakdown</h3>
-                <img src="/static/evaluations/sprint2_category_breakdown.png" alt="Scores by difficulty">
-            </div>
+    <!-- What We Built -->
+    <div class="eval-section" style="padding-top: 0;">
+        <h2>What We Built</h2>
+        <p class="section-desc">
+            Each sprint added new components to the RAG pipeline, improving retrieval quality and system reliability.
+        </p>
 
-            <div class="chart-card">
-                <h3>System Latency Distribution</h3>
-                <img src="/static/evaluations/sprint2_latency.png" alt="Latency">
+        <div class="sprint-cards">
+            <div class="sprint-card">
+                <div class="sprint-label">Sprint 1</div>
+                <h3>Baseline RAG</h3>
+                <p>
+                    Fixed-size chunking (1000 char), vector-only search, Llama 3.1 8B via Groq. 900 chunks.
+                </p>
+            </div>
+            <div class="sprint-card">
+                <div class="sprint-label">Sprint 2</div>
+                <h3>Improved Pipeline</h3>
+                <p>
+                    ISM-aware chunking (643 chunks), hybrid search (BM25 + vector + RRF), cross-encoder reranking, FastAPI web app.
+                </p>
+            </div>
+            <div class="sprint-card">
+                <div class="sprint-label">Sprint 3</div>
+                <h3>Production Ready</h3>
+                <p>
+                    Multi-query expansion, two-stage OOS guardrail, pipeline explorer, CI/CD, Hugging Face Spaces deployment.
+                </p>
             </div>
         </div>
     </div>
+
+    <!-- Charts -->
+    <div class="charts-section">
+        <h2>Evaluation Charts</h2>
+        <p class="section-desc">
+            Visual breakdowns from the RAGAS evaluation notebooks.
+        </p>
+
+        <!-- Sprint 2 Charts -->
+        <div class="charts-subsection">
+            <h3>Sprint 2 Results</h3>
+            <div class="chart-grid-eval">
+                <div class="chart-card-eval chart-wide">
+                    <div class="chart-title">Sprint 1 vs Sprint 2 Comparison</div>
+                    <img src="/static/evaluations/sprint2_comparison.png"
+                         alt="Bar chart comparing RAGAS metric scores between Sprint 1 and Sprint 2"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="chart-placeholder" style="display: none;">Chart not yet generated. Run the Sprint 2 evaluation notebook.</div>
+                </div>
+                <div class="chart-card-eval">
+                    <div class="chart-title">RAGAS Metrics Overview</div>
+                    <img src="/static/evaluations/sprint2_ragas_metrics.png"
+                         alt="Bar chart of Sprint 2 RAGAS metric scores"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="chart-placeholder" style="display: none;">Chart not yet generated. Run the Sprint 2 evaluation notebook.</div>
+                </div>
+                <div class="chart-card-eval">
+                    <div class="chart-title">In-Scope vs Out-of-Scope</div>
+                    <img src="/static/evaluations/sprint2_inscope_vs_oos.png"
+                         alt="Grouped bar chart comparing in-scope and out-of-scope query scores"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="chart-placeholder" style="display: none;">Chart not yet generated. Run the Sprint 2 evaluation notebook.</div>
+                </div>
+                <div class="chart-card-eval">
+                    <div class="chart-title">Scores by Category</div>
+                    <img src="/static/evaluations/sprint2_category_breakdown.png"
+                         alt="Heatmap or grouped bar chart breaking down scores by ISM category"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="chart-placeholder" style="display: none;">Chart not yet generated. Run the Sprint 2 evaluation notebook.</div>
+                </div>
+                <div class="chart-card-eval">
+                    <div class="chart-title">Latency Distribution</div>
+                    <img src="/static/evaluations/sprint2_latency.png"
+                         alt="Histogram or box plot of query response latency in seconds"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="chart-placeholder" style="display: none;">Chart not yet generated. Run the Sprint 2 evaluation notebook.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sprint 3 Charts -->
+        <div class="charts-subsection">
+            <h3>Sprint 3 Results</h3>
+            <div class="chart-grid-eval">
+                <div class="chart-card-eval chart-wide">
+                    <div class="chart-title">Sprint 1 vs Sprint 2 vs Sprint 3 Comparison</div>
+                    <img src="/static/evaluations/sprint3_comparison.png"
+                         alt="Bar chart comparing RAGAS metric scores across all three sprints"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="chart-placeholder" style="display: none;">Pending. Sprint 3 evaluation has not been run yet.</div>
+                </div>
+                <div class="chart-card-eval">
+                    <div class="chart-title">Sprint 3 RAGAS Metrics</div>
+                    <img src="/static/evaluations/sprint3_ragas_metrics.png"
+                         alt="Bar chart of Sprint 3 RAGAS metric scores"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="chart-placeholder" style="display: none;">Pending. Sprint 3 evaluation has not been run yet.</div>
+                </div>
+                <div class="chart-card-eval">
+                    <div class="chart-title">Sprint 3 In-Scope vs Out-of-Scope</div>
+                    <img src="/static/evaluations/sprint3_inscope_vs_oos.png"
+                         alt="Grouped bar chart comparing in-scope and out-of-scope query scores for Sprint 3"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="chart-placeholder" style="display: none;">Pending. Sprint 3 evaluation has not been run yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="lightbox-overlay" id="lightbox">
+        <span class="lightbox-close" id="lightboxClose">&times;</span>
+        <img id="lightboxImg" src="" alt="Expanded chart">
+    </div>
+
+    <script>
+        const overlay = document.getElementById('lightbox');
+        const lbImg = document.getElementById('lightboxImg');
+        const lbClose = document.getElementById('lightboxClose');
+
+        document.querySelectorAll('.chart-card-eval img').forEach(img => {
+            img.addEventListener('click', () => {
+                lbImg.src = img.src;
+                lbImg.alt = img.alt;
+                overlay.classList.add('active');
+            });
+        });
+
+        overlay.addEventListener('click', () => overlay.classList.remove('active'));
+        lbClose.addEventListener('click', () => overlay.classList.remove('active'));
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') overlay.classList.remove('active');
+        });
+    </script>
 </body>
 </html>

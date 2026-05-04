@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Explorer | Information Security Manual</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .pipeline-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        /* Step cards */
+        .step-card {
+            border: 1px solid var(--border-grey);
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            border-left: 5px solid var(--accent-blue);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            opacity: 0;
+            transform: translateX(-30px);
+            animation: slideIn 0.35s ease-out forwards;
+        }
+
+        @keyframes slideIn {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .step-card.border-green  { border-left-color: #2e7d32; }
+        .step-card.border-red    { border-left-color: var(--accent-red); }
+        .step-card.border-blue   { border-left-color: var(--accent-blue); }
+        .step-card.border-purple { border-left-color: #6a1b9a; }
+        .step-card.border-teal   { border-left-color: #00796b; }
+        .step-card.border-orange { border-left-color: #e65100; }
+
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .step-header:hover {
+            background: var(--bg-light-grey);
+        }
+
+        .step-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--primary-navy);
+        }
+
+        .step-badges {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .time-badge {
+            background: var(--bg-light-grey);
+            border: 1px solid var(--border-grey);
+            color: var(--text-grey);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-family: "SF Mono", "Menlo", "Consolas", monospace;
+        }
+
+        .status-pass {
+            color: #2e7d32;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .status-fail {
+            color: var(--accent-red);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .step-detail {
+            display: none;
+            padding: 0 1.25rem 1.25rem;
+            border-top: 1px solid var(--border-grey);
+            margin-top: 0;
+        }
+
+        .step-detail.expanded {
+            display: block;
+        }
+
+        .detail-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .detail-label {
+            color: var(--text-grey);
+            font-weight: 600;
+            min-width: 130px;
+            flex-shrink: 0;
+        }
+
+        .detail-value {
+            color: var(--text-main);
+            word-break: break-word;
+        }
+
+        .variant-list {
+            list-style: none;
+            padding: 0;
+            margin: 0.25rem 0 0 0;
+        }
+
+        .variant-list li {
+            padding: 0.25rem 0;
+            font-size: 0.88rem;
+            color: var(--text-main);
+        }
+
+        .variant-list li::before {
+            content: "\2022";
+            color: var(--accent-blue);
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        /* Mini-tables for chunks */
+        .chunk-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.75rem;
+            font-size: 0.82rem;
+        }
+
+        .chunk-table th {
+            background: var(--bg-light-grey);
+            color: var(--text-grey);
+            font-weight: 700;
+            text-align: left;
+            padding: 0.4rem 0.6rem;
+            border-bottom: 2px solid var(--border-grey);
+            text-transform: uppercase;
+            font-size: 0.72rem;
+            letter-spacing: 0.3px;
+        }
+
+        .chunk-table td {
+            padding: 0.4rem 0.6rem;
+            border-bottom: 1px solid var(--border-grey);
+            vertical-align: top;
+        }
+
+        .chunk-table td.mono {
+            font-family: "SF Mono", "Menlo", "Consolas", monospace;
+            font-size: 0.8rem;
+        }
+
+        .chunk-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .chunk-table .preview-cell {
+            max-width: 350px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-grey);
+            font-size: 0.8rem;
+        }
+
+        /* Answer block inside generation step */
+        .answer-block {
+            background: var(--bg-light-grey);
+            border: 1px solid var(--border-grey);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-top: 0.75rem;
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        .answer-block p {
+            margin-bottom: 0.75rem;
+        }
+
+        .answer-block p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Context chunks collapsible within generation */
+        .context-toggle {
+            background: none;
+            border: 1px solid var(--border-grey);
+            border-radius: 4px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--accent-blue);
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        .context-toggle:hover {
+            background: var(--bg-light-grey);
+        }
+
+        .context-chunks {
+            display: none;
+            margin-top: 0.5rem;
+        }
+
+        .context-chunks.expanded {
+            display: block;
+        }
+
+        /* Processing indicator */
+        .processing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 0;
+            color: var(--text-grey);
+            font-size: 0.95rem;
+        }
+
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        /* Summary bar */
+        .summary-bar {
+            background: var(--primary-navy);
+            color: var(--text-white);
+            padding: 1.25rem 1.5rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(-30px);
+            animation: slideIn 0.35s ease-out forwards;
+        }
+
+        .summary-label {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .summary-time {
+            font-family: "SF Mono", "Menlo", "Consolas", monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .summary-blocked {
+            background: var(--accent-red);
+        }
+
+        /* Refusal message */
+        .refusal-msg {
+            background: #fce4ec;
+            border: 1px solid #ef9a9a;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-top: 0.75rem;
+            color: #b71c1c;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .expand-arrow {
+            transition: transform 0.2s;
+            font-size: 0.75rem;
+            color: var(--text-grey);
+        }
+
+        .expand-arrow.rotated {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Header -->
+    <div class="header-container">
+        <header class="main-header">
+            <div class="brand-section">
+                <div class="brand-title">ISM CyberRAG</div>
+                <div class="brand-subtitle">Information Security Manual<br>Semantic Search Engine</div>
+            </div>
+
+            <nav class="main-nav">
+                <a href="/">Search ISM</a>
+                <a href="/pipeline" class="active">Pipeline Explorer</a>
+                <a href="/evaluations">Evaluations</a>
+            </nav>
+        </header>
+    </div>
+
+    <!-- Hero Banner -->
+    <div class="hero-banner" style="padding: 3rem 2rem;">
+        <div class="hero-content">
+            <h1 style="font-size: 2.2rem;">Pipeline Explorer</h1>
+            <p style="font-size: 1.1rem; max-width: 800px;">
+                Watch the RAG pipeline process your question step by step, from embedding to answer generation.
+            </p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pipeline-container">
+        <div class="search-container">
+            <h2>Enter a question</h2>
+            <form id="pipeline-form" class="search-form">
+                <input type="text" id="question" class="search-input"
+                       placeholder="e.g., What are the guidelines for managing cryptographic keys?"
+                       autocomplete="off" required>
+                <button type="submit" id="submit-btn" class="btn-submit">
+                    <span id="btn-text">Run Pipeline</span>
+                    <div id="loading" class="spinner"></div>
+                </button>
+            </form>
+        </div>
+
+        <div id="pipeline-steps"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('pipeline-form');
+        const questionInput = document.getElementById('question');
+        const submitBtn = document.getElementById('submit-btn');
+        const btnText = document.getElementById('btn-text');
+        const loading = document.getElementById('loading');
+        const stepsContainer = document.getElementById('pipeline-steps');
+
+        let stepCounter = 0;
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatText(text) {
+            if (!text) return "";
+            return text.split('\n\n').map(function(p) {
+                p = p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                return '<p>' + p + '</p>';
+            }).join('');
+        }
+
+        function toggleDetail(card) {
+            const detail = card.querySelector('.step-detail');
+            const arrow = card.querySelector('.expand-arrow');
+            if (detail.classList.contains('expanded')) {
+                detail.classList.remove('expanded');
+                arrow.classList.remove('rotated');
+            } else {
+                detail.classList.add('expanded');
+                arrow.classList.add('rotated');
+            }
+        }
+
+        function createStepCard(stepNum, name, timeMs, passed, borderClass, detailHtml) {
+            const card = document.createElement('div');
+            card.className = 'step-card ' + borderClass;
+
+            const statusIcon = passed
+                ? '<span class="status-pass">&#10003;</span>'
+                : '<span class="status-fail">&#10007;</span>';
+
+            card.innerHTML =
+                '<div class="step-header" onclick="toggleDetail(this.parentElement)">' +
+                    '<div class="step-title">' +
+                        '<span class="expand-arrow">&#9654;</span>' +
+                        '<span>' + stepNum + '. ' + escapeHtml(name) + '</span>' +
+                    '</div>' +
+                    '<div class="step-badges">' +
+                        '<span class="time-badge">' + timeMs + 'ms</span>' +
+                        statusIcon +
+                    '</div>' +
+                '</div>' +
+                '<div class="step-detail">' + detailHtml + '</div>';
+
+            return card;
+        }
+
+        function showProcessing() {
+            removeProcessing();
+            const el = document.createElement('div');
+            el.className = 'processing-indicator';
+            el.id = 'processing';
+            el.innerHTML = '<div class="pulse-dot"></div> Processing...';
+            stepsContainer.appendChild(el);
+        }
+
+        function removeProcessing() {
+            const el = document.getElementById('processing');
+            if (el) el.remove();
+        }
+
+        function buildChunkTable(chunks, columns) {
+            if (!chunks || chunks.length === 0) return '<em>No chunks</em>';
+            var html = '<table class="chunk-table"><thead><tr>';
+            columns.forEach(function(col) {
+                html += '<th>' + escapeHtml(col.label) + '</th>';
+            });
+            html += '</tr></thead><tbody>';
+            chunks.forEach(function(chunk) {
+                html += '<tr>';
+                columns.forEach(function(col) {
+                    var val = chunk[col.key];
+                    if (val === undefined || val === null) val = '-';
+                    if (typeof val === 'number') {
+                        html += '<td class="mono">' + val + '</td>';
+                    } else if (col.key === 'content_preview') {
+                        html += '<td class="preview-cell" title="' + escapeHtml(String(val)) + '">' + escapeHtml(String(val)) + '</td>';
+                    } else {
+                        html += '<td>' + escapeHtml(String(val)) + '</td>';
+                    }
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function handleEvent(eventType, data) {
+            removeProcessing();
+            stepCounter++;
+
+            var detail = '';
+            var borderClass = 'border-blue';
+            var passed = true;
+
+            switch (eventType) {
+                case 'pre_filter': {
+                    var out = data.output;
+                    passed = out.passed;
+                    borderClass = passed ? 'border-green' : 'border-red';
+                    detail =
+                        '<div class="detail-row"><span class="detail-label">Question</span><span class="detail-value">' + escapeHtml(out.question) + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">' + (passed ? 'Passed (in-scope)' : 'Blocked (out-of-scope)') + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Reason</span><span class="detail-value">' + escapeHtml(out.reason || 'N/A') + '</span></div>';
+                    if (!passed) {
+                        detail += '<div class="refusal-msg">This question was classified as out-of-scope. The pipeline will not proceed further.</div>';
+                    }
+                    break;
+                }
+                case 'embedding': {
+                    var out = data.output;
+                    borderClass = 'border-blue';
+                    detail =
+                        '<div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">' + escapeHtml(out.model) + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Dimension</span><span class="detail-value">' + out.dimension + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Prefix</span><span class="detail-value"><code>' + escapeHtml(out.prefix) + '</code></span></div>';
+                    break;
+                }
+                case 'query_expansion': {
+                    var out = data.output;
+                    borderClass = 'border-teal';
+                    detail =
+                        '<div class="detail-row"><span class="detail-label">Enabled</span><span class="detail-value">' + (out.enabled ? 'Yes' : 'No') + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Total Queries</span><span class="detail-value">' + out.total_queries + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Original</span><span class="detail-value">' + escapeHtml(out.original) + '</span></div>';
+                    if (out.variants && out.variants.length > 0) {
+                        detail += '<div class="detail-row"><span class="detail-label">Variants</span><span class="detail-value"><ul class="variant-list">';
+                        out.variants.forEach(function(v) {
+                            detail += '<li>' + escapeHtml(v) + '</li>';
+                        });
+                        detail += '</ul></span></div>';
+                    }
+                    break;
+                }
+                case 'hybrid_search': {
+                    var out = data.output;
+                    borderClass = 'border-blue';
+                    detail =
+                        '<div class="detail-row"><span class="detail-label">Method</span><span class="detail-value">' + escapeHtml(out.method) + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Queries Used</span><span class="detail-value">' + out.queries_used + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Candidates</span><span class="detail-value">' + out.candidates_returned + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">RRF k</span><span class="detail-value">' + out.rrf_k + '</span></div>';
+                    detail += buildChunkTable(out.chunks, [
+                        {key: 'control_id', label: 'Control ID'},
+                        {key: 'similarity', label: 'Similarity'},
+                        {key: 'rrf_score', label: 'RRF Score'},
+                        {key: 'content_preview', label: 'Preview'},
+                    ]);
+                    break;
+                }
+                case 'reranking': {
+                    var out = data.output;
+                    borderClass = 'border-orange';
+                    detail =
+                        '<div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">' + escapeHtml(out.model) + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Input Chunks</span><span class="detail-value">' + out.input_count + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Output Chunks</span><span class="detail-value">' + out.output_count + '</span></div>';
+                    detail += buildChunkTable(out.chunks, [
+                        {key: 'control_id', label: 'Control ID'},
+                        {key: 'rerank_score', label: 'Rerank Score'},
+                        {key: 'content_preview', label: 'Preview'},
+                    ]);
+                    break;
+                }
+                case 'guardrail': {
+                    var out = data.output;
+                    passed = out.passed;
+                    borderClass = passed ? 'border-green' : 'border-red';
+                    detail =
+                        '<div class="detail-row"><span class="detail-label">Max Rerank Score</span><span class="detail-value mono">' + out.max_rerank_score + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Threshold</span><span class="detail-value mono">' + out.threshold + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">' + (passed ? 'Passed (above threshold)' : 'Blocked (below threshold)') + '</span></div>';
+                    if (!passed) {
+                        detail += '<div class="refusal-msg">The highest rerank score fell below the out-of-scope threshold. The pipeline will not generate an answer.</div>';
+                    }
+                    break;
+                }
+                case 'generation': {
+                    var out = data.output;
+                    borderClass = 'border-purple';
+                    detail =
+                        '<div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">' + escapeHtml(out.model) + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Provider</span><span class="detail-value">' + escapeHtml(out.provider) + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Context Chunks</span><span class="detail-value">' + out.context_chunks_sent + '</span></div>';
+
+                    var contextId = 'ctx-' + stepCounter;
+                    detail += '<button class="context-toggle" onclick="event.stopPropagation(); var el=document.getElementById(\'' + contextId + '\'); el.classList.toggle(\'expanded\'); this.textContent = el.classList.contains(\'expanded\') ? \'Hide context chunks\' : \'Show context chunks\';">Show context chunks</button>';
+                    detail += '<div id="' + contextId + '" class="context-chunks">';
+                    if (out.context_sent && out.context_sent.length > 0) {
+                        detail += buildChunkTable(out.context_sent, [
+                            {key: 'chunk_index', label: '#'},
+                            {key: 'control_id', label: 'Control ID'},
+                            {key: 'content_preview', label: 'Preview'},
+                        ]);
+                    }
+                    detail += '</div>';
+
+                    detail += '<div class="answer-block">' + formatText(out.answer) + '</div>';
+                    break;
+                }
+                default:
+                    return;
+            }
+
+            var card = createStepCard(stepCounter, data.step, data.time_ms, passed, borderClass, detail);
+            stepsContainer.appendChild(card);
+            showProcessing();
+        }
+
+        function handleDone(data) {
+            removeProcessing();
+            var bar = document.createElement('div');
+            var isBlocked = !!data.blocked_at;
+            bar.className = 'summary-bar' + (isBlocked ? ' summary-blocked' : '');
+
+            var label = isBlocked
+                ? 'Pipeline blocked at: ' + data.blocked_at
+                : 'Pipeline complete';
+
+            bar.innerHTML =
+                '<span class="summary-label">' + escapeHtml(label) + '</span>' +
+                '<span class="summary-time">' + data.total_time_ms + 'ms total</span>';
+
+            stepsContainer.appendChild(bar);
+        }
+
+        async function runPipeline(question) {
+            stepsContainer.innerHTML = '';
+            stepCounter = 0;
+            showProcessing();
+
+            btnText.style.display = 'none';
+            loading.style.display = 'inline-block';
+            submitBtn.disabled = true;
+
+            try {
+                var response = await fetch('/pipeline/stream', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({question: question}),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server error: ' + response.status);
+                }
+
+                var reader = response.body.getReader();
+                var decoder = new TextDecoder();
+                var buffer = '';
+
+                while (true) {
+                    var result = await reader.read();
+                    if (result.done) break;
+
+                    buffer += decoder.decode(result.value, {stream: true});
+
+                    var parts = buffer.split('\n\n');
+                    buffer = parts.pop();
+
+                    for (var i = 0; i < parts.length; i++) {
+                        var block = parts[i].trim();
+                        if (!block) continue;
+
+                        var eventType = '';
+                        var eventData = '';
+                        var lines = block.split('\n');
+                        for (var j = 0; j < lines.length; j++) {
+                            var line = lines[j];
+                            if (line.startsWith('event: ')) {
+                                eventType = line.substring(7).trim();
+                            } else if (line.startsWith('data: ')) {
+                                eventData = line.substring(6);
+                            }
+                        }
+
+                        if (!eventType || !eventData) continue;
+
+                        var parsed;
+                        try {
+                            parsed = JSON.parse(eventData);
+                        } catch (e) {
+                            continue;
+                        }
+
+                        if (eventType === 'done') {
+                            handleDone(parsed);
+                        } else if (eventType === 'error') {
+                            removeProcessing();
+                            stepsContainer.innerHTML += '<div class="refusal-msg">' + escapeHtml(parsed.message || 'Unknown error') + '</div>';
+                        } else {
+                            handleEvent(eventType, parsed);
+                        }
+                    }
+                }
+
+                // Process any remaining buffer
+                if (buffer.trim()) {
+                    var block = buffer.trim();
+                    var eventType = '';
+                    var eventData = '';
+                    var lines = block.split('\n');
+                    for (var j = 0; j < lines.length; j++) {
+                        var line = lines[j];
+                        if (line.startsWith('event: ')) {
+                            eventType = line.substring(7).trim();
+                        } else if (line.startsWith('data: ')) {
+                            eventData = line.substring(6);
+                        }
+                    }
+                    if (eventType && eventData) {
+                        var parsed;
+                        try {
+                            parsed = JSON.parse(eventData);
+                        } catch (e) {}
+                        if (parsed) {
+                            if (eventType === 'done') {
+                                handleDone(parsed);
+                            } else {
+                                handleEvent(eventType, parsed);
+                            }
+                        }
+                    }
+                }
+
+                removeProcessing();
+
+            } catch (err) {
+                removeProcessing();
+                stepsContainer.innerHTML += '<div class="refusal-msg">Failed to connect: ' + escapeHtml(err.message) + '</div>';
+            } finally {
+                btnText.style.display = 'inline-block';
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var question = questionInput.value.trim();
+            if (!question) return;
+            runPipeline(question);
+        });
+    </script>
+</body>
+</html>

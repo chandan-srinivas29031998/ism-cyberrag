@@ -24,6 +24,10 @@ app.include_router(router)
 async def index(request: Request):
     return templates.TemplateResponse(request, "index.html")
 
+@app.get("/pipeline", response_class=HTMLResponse)
+async def pipeline(request: Request):
+    return templates.TemplateResponse(request, "pipeline.html")
+
 @app.get("/evaluations", response_class=HTMLResponse)
 async def eval_dashboard(request: Request):
     return templates.TemplateResponse(request, "evaluations.html")
