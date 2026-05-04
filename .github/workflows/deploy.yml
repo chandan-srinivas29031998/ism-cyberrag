@@ -26,6 +26,7 @@ jobs:
           rsync -av --delete \
             --exclude '.git' \
             --exclude '.venv' \
+            --exclude 'hf-space' \
             --exclude 'data/' \
             --exclude 'notebooks/' \
             --exclude 'evaluations/' \
