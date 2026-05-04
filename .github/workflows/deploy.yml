@@ -1,0 +1,46 @@
+name: Deploy to Hugging Face Spaces
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-to-hf-spaces:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install git-lfs
+        run: git lfs install
+
+      - name: Clone HF Space repo
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global credential.helper store
+          echo "https://user:${{ secrets.HF_TOKEN }}@huggingface.co" > ~/.git-credentials
+          git clone https://huggingface.co/spaces/${{ secrets.HF_SPACE_NAME }} hf-space
+
+      - name: Sync files to HF Space
+        run: |
+          rsync -av --delete \
+            --exclude '.git' \
+            --exclude '.venv' \
+            --exclude 'data/' \
+            --exclude 'notebooks/' \
+            --exclude 'evaluations/' \
+            --exclude 'docs/' \
+            --exclude '.env' \
+            ./ hf-space/
+
+      - name: Copy evaluation images for dashboard
+        run: |
+          mkdir -p hf-space/app/static/evaluations
+          cp -r evaluations/sprint-*/sprint*.png hf-space/app/static/evaluations/ 2>/dev/null || true
+
+      - name: Commit and push to HF
+        run: |
+          cd hf-space
+          git add -A
+          git diff --cached --quiet || git commit -m "Deploy from GitHub Actions"
+          git push
