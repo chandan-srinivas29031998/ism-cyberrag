@@ -44,6 +44,8 @@ jobs:
           cd hf-space
           git config user.email "github-actions@users.noreply.github.com"
           git config user.name "GitHub Actions"
+          git lfs track "*.png" "*.jpg" "*.jpeg" "*.gif" "*.pdf"
+          git add .gitattributes
           git add -A
           git diff --cached --quiet || git commit -m "Deploy from GitHub Actions"
           git push

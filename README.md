@@ -1,3 +1,13 @@
+---
+title: ISM CyberRAG
+emoji: 🛡️
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # ISM-CyberRAG
 
 A Retrieval-Augmented Generation (RAG) system for querying the Australian Information Security Manual (ISM) using natural language.
