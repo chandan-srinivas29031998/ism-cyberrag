@@ -8,6 +8,7 @@
     <style>
         /* Evaluations page styles */
         .eval-section {
+            width: 100%;
             max-width: 1200px;
             margin: 0 auto;
             padding: 3rem 2rem;
@@ -96,6 +97,31 @@
             margin-top: 0.5rem;
         }
 
+        .table-scroll {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .table-scroll .metrics-table th:first-child,
+        .table-scroll .metrics-table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+        }
+
+        .table-scroll .metrics-table th:first-child {
+            z-index: 2;
+        }
+
+        .table-scroll .metrics-table tbody td:first-child {
+            background: var(--bg-white);
+        }
+
+        .table-scroll .metrics-table tbody tr:nth-child(even) td:first-child {
+            background: var(--bg-light-grey);
+        }
+
         /* Sprint Cards */
         .sprint-cards {
             display: grid;
@@ -134,6 +160,7 @@
 
         /* Charts Grid */
         .charts-section {
+            width: 100%;
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 2rem 3rem;
@@ -269,6 +296,24 @@
                 grid-column: auto;
             }
         }
+
+        @media (max-width: 640px) {
+            .eval-section {
+                padding: 2rem 1rem;
+            }
+            .charts-section {
+                padding: 0 1rem 2rem;
+            }
+            .chart-grid-eval {
+                grid-template-columns: 1fr;
+            }
+            .metrics-table {
+                min-width: 620px;
+            }
+            .chart-card-eval .chart-placeholder {
+                min-height: 180px;
+            }
+        }
     </style>
 </head>
 <body style="overflow-y: auto;">
@@ -306,54 +351,56 @@
             Each sprint was evaluated on the same set of 100 queries (90 in-scope ISM questions, 10 out-of-scope). Scores are RAGAS metric averages. Green means the sprint 3 target was met, red means it was not.
         </p>
 
-        <table class="metrics-table">
-            <thead>
-                <tr>
-                    <th>Metric</th>
-                    <th>Sprint 1</th>
-                    <th>Sprint 2</th>
-                    <th>Sprint 3</th>
-                    <th>Target</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="metric-name">Faithfulness</td>
-                    <td class="val-red">0.6834</td>
-                    <td class="val-red">0.7341</td>
-                    <td class="val-pending">--</td>
-                    <td class="val-neutral">&gt; 0.78</td>
-                </tr>
-                <tr>
-                    <td class="metric-name">Answer Relevancy</td>
-                    <td class="val-red">0.7216</td>
-                    <td class="val-red">0.7678</td>
-                    <td class="val-pending">--</td>
-                    <td class="val-neutral">&gt; 0.82</td>
-                </tr>
-                <tr>
-                    <td class="metric-name">Context Precision</td>
-                    <td class="val-red">0.7885</td>
-                    <td class="val-green">0.8598</td>
-                    <td class="val-pending">--</td>
-                    <td class="val-neutral">&gt; 0.85</td>
-                </tr>
-                <tr>
-                    <td class="metric-name">Context Recall</td>
-                    <td class="val-red">0.8224</td>
-                    <td class="val-red">0.8659</td>
-                    <td class="val-pending">--</td>
-                    <td class="val-neutral">&gt; 0.91</td>
-                </tr>
-                <tr>
-                    <td class="metric-name">Answer Similarity</td>
-                    <td class="val-neutral">N/A</td>
-                    <td class="val-green">0.9057</td>
-                    <td class="val-pending">--</td>
-                    <td class="val-neutral">&gt; 0.93</td>
-                </tr>
-            </tbody>
-        </table>
+        <div class="table-scroll">
+            <table class="metrics-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Sprint 1</th>
+                        <th>Sprint 2</th>
+                        <th>Sprint 3</th>
+                        <th>Target</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="metric-name">Faithfulness</td>
+                        <td class="val-red">0.6834</td>
+                        <td class="val-red">0.7341</td>
+                        <td class="val-pending">--</td>
+                        <td class="val-neutral">&gt; 0.78</td>
+                    </tr>
+                    <tr>
+                        <td class="metric-name">Answer Relevancy</td>
+                        <td class="val-red">0.7216</td>
+                        <td class="val-red">0.7678</td>
+                        <td class="val-pending">--</td>
+                        <td class="val-neutral">&gt; 0.82</td>
+                    </tr>
+                    <tr>
+                        <td class="metric-name">Context Precision</td>
+                        <td class="val-red">0.7885</td>
+                        <td class="val-green">0.8598</td>
+                        <td class="val-pending">--</td>
+                        <td class="val-neutral">&gt; 0.85</td>
+                    </tr>
+                    <tr>
+                        <td class="metric-name">Context Recall</td>
+                        <td class="val-red">0.8224</td>
+                        <td class="val-red">0.8659</td>
+                        <td class="val-pending">--</td>
+                        <td class="val-neutral">&gt; 0.91</td>
+                    </tr>
+                    <tr>
+                        <td class="metric-name">Answer Similarity</td>
+                        <td class="val-neutral">N/A</td>
+                        <td class="val-green">0.9057</td>
+                        <td class="val-pending">--</td>
+                        <td class="val-neutral">&gt; 0.93</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
         <p class="table-note">
             Sprint 1 answer similarity was not measured. Sprint 3 scores will be filled after evaluation runs complete.
         </p>

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/style.css">
     <style>
         .pipeline-container {
+            width: 100%;
             max-width: 900px;
             margin: 0 auto;
             padding: 3rem 2rem;
@@ -144,9 +145,16 @@
         /* Mini-tables for chunks */
         .chunk-table {
             width: 100%;
+            min-width: 640px;
             border-collapse: collapse;
             margin-top: 0.75rem;
             font-size: 0.82rem;
+        }
+
+        .chunk-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .chunk-table th {
@@ -183,6 +191,41 @@
             text-overflow: ellipsis;
             color: var(--text-grey);
             font-size: 0.8rem;
+        }
+
+        .trace-group {
+            margin-top: 0.9rem;
+            border: 1px solid var(--border-grey);
+            border-radius: 6px;
+            background: var(--bg-white);
+            overflow: hidden;
+        }
+
+        .trace-group-header {
+            padding: 0.75rem 0.9rem;
+            background: var(--bg-light-grey);
+            border-bottom: 1px solid var(--border-grey);
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .trace-query {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--primary-navy);
+            word-break: break-word;
+        }
+
+        .trace-counts {
+            font-family: "SF Mono", "Menlo", "Consolas", monospace;
+            color: var(--text-grey);
+            font-size: 0.78rem;
+            white-space: nowrap;
+        }
+
+        .trace-group-body {
+            padding: 0.75rem 0.9rem 0.9rem;
         }
 
         /* Answer block inside generation step */
@@ -303,6 +346,52 @@
 
         .expand-arrow.rotated {
             transform: rotate(90deg);
+        }
+
+        @media (max-width: 760px) {
+            .pipeline-container {
+                padding: 1.5rem 1rem;
+            }
+
+            .step-header {
+                align-items: flex-start;
+                gap: 0.8rem;
+            }
+
+            .step-title {
+                min-width: 0;
+                flex: 1;
+            }
+
+            .step-badges {
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 0.35rem;
+            }
+
+            .detail-row {
+                flex-direction: column;
+                gap: 0.15rem;
+            }
+
+            .detail-label {
+                min-width: 0;
+            }
+
+            .trace-group-header {
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+
+            .trace-counts {
+                white-space: normal;
+            }
+
+            .summary-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.3rem;
+            }
         }
     </style>
 </head>
@@ -427,7 +516,7 @@
 
         function buildChunkTable(chunks, columns) {
             if (!chunks || chunks.length === 0) return '<em>No chunks</em>';
-            var html = '<table class="chunk-table"><thead><tr>';
+            var html = '<div class="chunk-table-wrap"><table class="chunk-table"><thead><tr>';
             columns.forEach(function(col) {
                 html += '<th>' + escapeHtml(col.label) + '</th>';
             });
@@ -447,7 +536,30 @@
                 });
                 html += '</tr>';
             });
-            html += '</tbody></table>';
+            html += '</tbody></table></div>';
+            return html;
+        }
+
+        function buildPerQueryTrace(perQuery) {
+            if (!perQuery || perQuery.length === 0) return '';
+
+            var html = '<div class="detail-row"><span class="detail-label">Per Query</span><span class="detail-value">Candidate retrieval before deduplication</span></div>';
+            perQuery.forEach(function(item) {
+                var label = item.is_original ? 'Original' : 'Variant ' + item.query_index;
+                html += '<div class="trace-group">';
+                html += '<div class="trace-group-header">';
+                html += '<div class="trace-query">' + escapeHtml(label + ': ' + item.query) + '</div>';
+                html += '<div class="trace-counts">' + item.returned_count + ' returned / ' + item.new_unique_count + ' new / ' + item.duplicate_count + ' dupes</div>';
+                html += '</div>';
+                html += '<div class="trace-group-body">';
+                html += buildChunkTable(item.chunks, [
+                    {key: 'control_id', label: 'Control ID'},
+                    {key: 'similarity', label: 'Similarity'},
+                    {key: 'rrf_score', label: 'RRF Score'},
+                    {key: 'content_preview', label: 'Preview'},
+                ]);
+                html += '</div></div>';
+            });
             return html;
         }
 
@@ -504,8 +616,11 @@
                     detail =
                         '<div class="detail-row"><span class="detail-label">Method</span><span class="detail-value">' + escapeHtml(out.method) + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">Queries Used</span><span class="detail-value">' + out.queries_used + '</span></div>' +
-                        '<div class="detail-row"><span class="detail-label">Candidates</span><span class="detail-value">' + out.candidates_returned + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Before Dedupe</span><span class="detail-value">' + (out.candidates_before_dedupe || out.candidates_returned) + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">After Dedupe</span><span class="detail-value">' + (out.candidates_after_dedupe || out.candidates_returned) + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">RRF k</span><span class="detail-value">' + out.rrf_k + '</span></div>';
+                    detail += buildPerQueryTrace(out.per_query);
+                    detail += '<div class="detail-row"><span class="detail-label">Merged Pool</span><span class="detail-value">First 10 deduplicated candidates</span></div>';
                     detail += buildChunkTable(out.chunks, [
                         {key: 'control_id', label: 'Control ID'},
                         {key: 'similarity', label: 'Similarity'},

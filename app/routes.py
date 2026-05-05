@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from src.embeddings import load_embedding_model, embed_query
-from src.retrieval import hybrid_search, multi_query_retrieve
+from src.retrieval import hybrid_search
 from src.reranking import rerank
 from src.llm import generate_answer
 from src.query_expansion import expand_query
@@ -51,6 +51,69 @@ class ChatResponse(BaseModel):
     chunks: list[ChunkResponse]
     query_variants: list[str] = []
     guardrail_stage: str | None = None
+    guardrail_details: dict | None = None
+    retrieval_trace: dict | None = None
+
+
+def _chunk_summary(chunk: dict, preview_chars: int = 150) -> dict:
+    return {
+        "id": chunk.get("id"),
+        "control_id": chunk.get("control_id", "N/A"),
+        "category": chunk.get("category", ""),
+        "sub_topic": chunk.get("sub_topic", ""),
+        "similarity": round(chunk.get("similarity", 0), 4),
+        "rrf_score": round(chunk.get("rrf_score", 0), 4),
+        "rerank_score": round(chunk.get("rerank_score", 0), 3)
+        if chunk.get("rerank_score") is not None
+        else None,
+        "content_preview": chunk.get("content", "")[:preview_chars],
+    }
+
+
+def _retrieve_with_trace(client, model, queries: list[str]) -> tuple[list[dict], dict]:
+    seen_ids = set()
+    merged = []
+    per_query = []
+    total_returned = 0
+
+    for index, query_text in enumerate(queries):
+        query_embedding = embed_query(model, query_text)
+        results = hybrid_search(
+            client,
+            query_text,
+            query_embedding,
+            match_count=INITIAL_RETRIEVE_COUNT,
+        )
+        total_returned += len(results)
+
+        new_unique = 0
+        duplicate_count = 0
+        for chunk in results:
+            chunk_id = chunk.get("id")
+            if chunk_id not in seen_ids:
+                seen_ids.add(chunk_id)
+                merged.append(chunk)
+                new_unique += 1
+            else:
+                duplicate_count += 1
+
+        per_query.append({
+            "query_index": index,
+            "query": query_text,
+            "is_original": index == 0,
+            "returned_count": len(results),
+            "new_unique_count": new_unique,
+            "duplicate_count": duplicate_count,
+            "chunks": [_chunk_summary(c) for c in results[:5]],
+        })
+
+    return merged, {
+        "method": "hybrid (BM25 + vector + RRF)",
+        "queries_used": len(queries),
+        "candidates_before_dedupe": total_returned,
+        "candidates_after_dedupe": len(merged),
+        "per_query": per_query,
+    }
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -66,6 +129,12 @@ async def chat(req: ChatRequest):
             answer=OOS_REFUSAL,
             chunks=[],
             guardrail_stage="pre_filter",
+            guardrail_details={
+                "stage": "pre_filter",
+                "passed": False,
+                "reason": reason,
+                "threshold": OOS_RERANK_THRESHOLD,
+            },
         )
 
     model = _get_embedding_model()
@@ -74,17 +143,8 @@ async def chat(req: ChatRequest):
     # Multi-query expansion
     queries = expand_query(question)
 
-    # Retrieve with multi-query
-    if len(queries) > 1:
-        raw_chunks = multi_query_retrieve(
-            client,
-            lambda q: embed_query(model, q),
-            queries,
-            match_count=INITIAL_RETRIEVE_COUNT,
-        )
-    else:
-        query_embedding = embed_query(model, question)
-        raw_chunks = hybrid_search(client, question, query_embedding, match_count=INITIAL_RETRIEVE_COUNT)
+    # Retrieve each query variant, then merge/deduplicate candidates.
+    raw_chunks, retrieval_trace = _retrieve_with_trace(client, model, queries)
 
     # Cross-encoder reranking
     reranked = rerank(question, raw_chunks, top_k=RERANK_TOP_K)
@@ -97,6 +157,13 @@ async def chat(req: ChatRequest):
             chunks=[],
             query_variants=queries,
             guardrail_stage="rerank_threshold",
+            guardrail_details={
+                "stage": "rerank_threshold",
+                "passed": False,
+                "max_rerank_score": round(max_score, 3),
+                "threshold": OOS_RERANK_THRESHOLD,
+            },
+            retrieval_trace=retrieval_trace,
         )
 
     # Generate answer
@@ -117,6 +184,13 @@ async def chat(req: ChatRequest):
         answer=answer,
         chunks=chunk_responses,
         query_variants=queries,
+        guardrail_details={
+            "stage": "passed",
+            "passed": True,
+            "max_rerank_score": round(max_score, 3),
+            "threshold": OOS_RERANK_THRESHOLD,
+        },
+        retrieval_trace=retrieval_trace,
     )
 
 
@@ -159,7 +233,7 @@ async def pipeline_stream(req: ChatRequest):
 
         # Step 2: Query embedding
         t0 = time.time()
-        query_embedding = embed_query(model, question)
+        embed_query(model, question)
         elapsed = round((time.time() - t0) * 1000, 1)
         yield _sse_event("embedding", {
             "step": "Query Embedding",
@@ -188,22 +262,17 @@ async def pipeline_stream(req: ChatRequest):
 
         # Step 4: Hybrid search (multi-query or single)
         t0 = time.time()
-        if len(queries) > 1:
-            raw_chunks = multi_query_retrieve(
-                client,
-                lambda q: embed_query(model, q),
-                queries,
-                match_count=INITIAL_RETRIEVE_COUNT,
-            )
-        else:
-            raw_chunks = hybrid_search(client, question, query_embedding, match_count=INITIAL_RETRIEVE_COUNT)
+        raw_chunks, retrieval_trace = _retrieve_with_trace(client, model, queries)
         elapsed = round((time.time() - t0) * 1000, 1)
 
         search_output = {
             "method": "hybrid (BM25 + vector + RRF)",
             "queries_used": len(queries),
             "candidates_returned": len(raw_chunks),
+            "candidates_before_dedupe": retrieval_trace["candidates_before_dedupe"],
+            "candidates_after_dedupe": retrieval_trace["candidates_after_dedupe"],
             "rrf_k": 50,
+            "per_query": retrieval_trace["per_query"],
             "chunks": [
                 {
                     "control_id": c.get("control_id", "N/A"),
