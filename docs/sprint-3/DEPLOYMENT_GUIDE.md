@@ -217,6 +217,16 @@ Full list of environment variables used by the application. All are set in `.env
 | `QUERY_EXPANSION_MODEL` | `llama3.1:8b` | Model used only for query expansion |
 | `QUERY_EXPANSION_RETRIES` | `2` | Retry count before falling back to the original query |
 
+### Web app performance
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WEB_CACHE_ENABLED` | `true` | Enable in-memory cache for repeated web app queries |
+| `WEB_CACHE_TTL_SECONDS` | `900` | Cache lifetime in seconds |
+| `WEB_RETRIEVAL_PARALLEL_ENABLED` | `true` | Run multi-query hybrid searches concurrently in the web app |
+| `WEB_RETRIEVAL_MAX_WORKERS` | `4` | Maximum concurrent hybrid searches |
+| `WEB_RERANK_CANDIDATE_LIMIT` | `30` | Maximum web candidates passed into cross-encoder reranking |
+
 ### Sprint 3: OOS guardrail
 
 | Variable | Default | Description |

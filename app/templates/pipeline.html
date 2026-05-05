@@ -13,6 +13,40 @@
             padding: 3rem 2rem;
         }
 
+        .mode-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-top: 0.85rem;
+            padding: 0.25rem;
+            border: 1px solid var(--border-grey);
+            border-radius: 6px;
+            background: var(--bg-light-grey);
+        }
+
+        .mode-control input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .mode-control label {
+            min-width: 112px;
+            text-align: center;
+            padding: 0.45rem 0.75rem;
+            border-radius: 4px;
+            color: var(--text-grey);
+            font-size: 0.86rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .mode-control input:checked + label {
+            background: var(--primary-navy);
+            color: var(--text-white);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+
         /* Step cards */
         .step-card {
             border: 1px solid var(--border-grey);
@@ -392,6 +426,16 @@
                 align-items: flex-start;
                 gap: 0.3rem;
             }
+
+            .mode-control {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                width: 100%;
+            }
+
+            .mode-control label {
+                min-width: 0;
+            }
         }
     </style>
 </head>
@@ -435,6 +479,12 @@
                     <div id="loading" class="spinner"></div>
                 </button>
             </form>
+            <div class="mode-control" role="radiogroup" aria-label="Retrieval mode">
+                <input type="radio" name="retrieval-mode" id="mode-multi" value="multi" checked>
+                <label for="mode-multi">Multi-query</label>
+                <input type="radio" name="retrieval-mode" id="mode-single" value="single">
+                <label for="mode-single">Single query</label>
+            </div>
         </div>
 
         <div id="pipeline-steps"></div>
@@ -447,6 +497,7 @@
         const btnText = document.getElementById('btn-text');
         const loading = document.getElementById('loading');
         const stepsContainer = document.getElementById('pipeline-steps');
+        const modeMulti = document.getElementById('mode-multi');
 
         let stepCounter = 0;
 
@@ -620,6 +671,8 @@
                         '<div class="detail-row"><span class="detail-label">Queries Used</span><span class="detail-value">' + out.queries_used + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">Before Dedupe</span><span class="detail-value">' + (out.candidates_before_dedupe || out.candidates_returned) + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">After Dedupe</span><span class="detail-value">' + (out.candidates_after_dedupe || out.candidates_returned) + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Parallel Search</span><span class="detail-value">' + (out.parallel_enabled ? 'Yes' : 'No') + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Cache</span><span class="detail-value">' + (out.cache_enabled ? 'Enabled' : 'Disabled') + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">RRF k</span><span class="detail-value">' + out.rrf_k + '</span></div>';
                     detail += buildPerQueryTrace(out.per_query);
                     detail += '<div class="detail-row"><span class="detail-label">Merged Pool</span><span class="detail-value">First 10 deduplicated candidates</span></div>';
@@ -637,6 +690,8 @@
                     detail =
                         '<div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">' + escapeHtml(out.model) + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">Input Chunks</span><span class="detail-value">' + out.input_count + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Candidates</span><span class="detail-value">' + (out.candidate_count_before_limit || out.input_count) + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Candidate Cap</span><span class="detail-value">' + (out.candidate_limit || 'Disabled') + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">Output Chunks</span><span class="detail-value">' + out.output_count + '</span></div>';
                     detail += buildChunkTable(out.chunks, [
                         {key: 'control_id', label: 'Control ID'},
@@ -707,7 +762,7 @@
             stepsContainer.appendChild(bar);
         }
 
-        async function runPipeline(question) {
+        async function runPipeline(question, multiQuery) {
             stepsContainer.innerHTML = '';
             stepCounter = 0;
             showProcessing();
@@ -720,7 +775,7 @@
                 var response = await fetch('/pipeline/stream', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({question: question}),
+                    body: JSON.stringify({question: question, multi_query: multiQuery}),
                 });
 
                 if (!response.ok) {
@@ -821,7 +876,7 @@
             e.preventDefault();
             var question = questionInput.value.trim();
             if (!question) return;
-            runPipeline(question);
+            runPipeline(question, modeMulti.checked);
         });
     </script>
 </body>
