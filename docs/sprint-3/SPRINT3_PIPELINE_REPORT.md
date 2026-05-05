@@ -27,8 +27,11 @@ If the LLM call for expansion fails (bad JSON, timeout), the system falls back t
 |----------|---------|-------------|
 | `MULTI_QUERY_ENABLED` | `true` | Set to `false` to disable expansion entirely |
 | `MULTI_QUERY_COUNT` | `3` | Number of alternate phrasings to generate |
+| `QUERY_EXPANSION_PROVIDER` | `ollama` | Keeps expansion local and avoids Groq rate limits |
+| `QUERY_EXPANSION_MODEL` | `llama3.1:8b` | Local model used for expansion |
+| `QUERY_EXPANSION_RETRIES` | `2` | Retries transient expansion failures before fallback |
 
-Both are set via environment variables and read in `src/config.py`.
+These are set via environment variables and read in `src/config.py`.
 
 
 ## Two-stage OOS guardrail

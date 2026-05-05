@@ -110,6 +110,8 @@ Optional (for evaluation and experiment tracking):
 |----------|---------|
 | `EVAL_LLM_PROVIDER` | `ollama` |
 | `EVAL_LLM_MODEL` | `llama3.1:8b` |
+| `QUERY_EXPANSION_PROVIDER` | `ollama` |
+| `QUERY_EXPANSION_MODEL` | `llama3.1:8b` |
 | `CLEARML_API_ACCESS_KEY` | (from ClearML dashboard) |
 | `CLEARML_API_SECRET_KEY` | (from ClearML dashboard) |
 

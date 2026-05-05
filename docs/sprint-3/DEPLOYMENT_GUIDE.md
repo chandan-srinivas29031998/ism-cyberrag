@@ -213,6 +213,9 @@ Full list of environment variables used by the application. All are set in `.env
 |----------|---------|-------------|
 | `MULTI_QUERY_ENABLED` | `true` | Enable or disable multi-query expansion |
 | `MULTI_QUERY_COUNT` | `3` | Number of alternate query phrasings to generate |
+| `QUERY_EXPANSION_PROVIDER` | `ollama` | Provider used only for query expansion |
+| `QUERY_EXPANSION_MODEL` | `llama3.1:8b` | Model used only for query expansion |
+| `QUERY_EXPANSION_RETRIES` | `2` | Retry count before falling back to the original query |
 
 ### Sprint 3: OOS guardrail
 
