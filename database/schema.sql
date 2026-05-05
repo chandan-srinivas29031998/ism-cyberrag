@@ -30,6 +30,24 @@ create table chunks (
 create index on chunks using hnsw (embedding vector_cosine_ops);
 create index on chunks using gin (fts);
 
+-- Row Level Security
+-- Runtime app/notebook access is read-only via the Supabase publishable key.
+-- No insert/update/delete policies are defined for anon/authenticated users.
+alter table documents enable row level security;
+alter table chunks enable row level security;
+
+create policy "Allow read access to ISM documents"
+on documents
+for select
+to anon, authenticated
+using (true);
+
+create policy "Allow read access to ISM chunks"
+on chunks
+for select
+to anon, authenticated
+using (true);
+
 -- Sprint 1: Vector-only search (kept for backward compatibility)
 create or replace function match_chunks(
   query_embedding vector(768),

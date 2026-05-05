@@ -94,6 +94,31 @@ ClearML credentials are not needed on HF Spaces. ClearML is only used in noteboo
 
 The app reads these via `os.getenv()` in `src/config.py`. The `.env.example` file is copied as `.env` in the Docker image, but `load_dotenv()` does not override environment variables that are already set, so the HF Spaces secrets take precedence over the placeholder values.
 
+### Step 2a: Enable Supabase RLS
+
+Supabase tables in the public schema should have Row Level Security enabled. Sprint 3 does not rebuild or mutate the corpus at runtime; it only reads the existing `documents` and `chunks` tables through `match_chunks` and `hybrid_search`.
+
+For an existing Sprint 2 database, run `database/sprint3_rls.sql`. The core policy shape is:
+
+```sql
+alter table public.chunks enable row level security;
+alter table public.documents enable row level security;
+
+create policy "Allow read access to ISM chunks"
+on public.chunks
+for select
+to anon, authenticated
+using (true);
+
+create policy "Allow read access to ISM documents"
+on public.documents
+for select
+to anon, authenticated
+using (true);
+```
+
+No insert, update, or delete policies are created for `anon` or `authenticated`. The web app continues to use `SUPABASE_PUBLISHABLE_KEY`, so these read policies are required; enabling RLS without them would block retrieval.
+
 ### Step 3: Set secrets on GitHub (for automated deployment)
 
 Go to the GitHub repo, Settings, Secrets and variables, Actions, and add:

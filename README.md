@@ -102,6 +102,8 @@ Required:
 | `SUPABASE_PUBLISHABLE_KEY` | Supabase project settings, API (anon key) |
 | `GROQ_API_KEY` | https://console.groq.com/keys |
 
+Supabase is used as a read-only vector store at runtime. RLS should be enabled on `documents` and `chunks` with read-only `SELECT` policies for `anon` and `authenticated`; see `database/sprint3_rls.sql`.
+
 Optional (for evaluation and experiment tracking):
 
 | Variable | Default |
