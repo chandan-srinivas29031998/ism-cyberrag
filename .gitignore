@@ -92,6 +92,7 @@ dmypy.json
 .ruff_cache/
 
 # AI & Automation
+.local/
 .abstra/
 marimo/_static/
 marimo/_lsp/

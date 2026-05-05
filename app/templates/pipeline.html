@@ -545,7 +545,7 @@
 
             var html = '<div class="detail-row"><span class="detail-label">Per Query</span><span class="detail-value">Candidate retrieval before deduplication</span></div>';
             perQuery.forEach(function(item) {
-                var label = item.is_original ? 'Original' : 'Variant ' + item.query_index;
+                var label = item.label || (item.is_original ? 'Original' : 'Variant ' + item.query_index);
                 html += '<div class="trace-group">';
                 html += '<div class="trace-group-header">';
                 html += '<div class="trace-query">' + escapeHtml(label + ': ' + item.query) + '</div>';
@@ -599,6 +599,8 @@
                     borderClass = 'border-teal';
                     detail =
                         '<div class="detail-row"><span class="detail-label">Enabled</span><span class="detail-value">' + (out.enabled ? 'Yes' : 'No') + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Provider</span><span class="detail-value">' + escapeHtml(out.provider || 'N/A') + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">' + escapeHtml(out.model || 'N/A') + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">Total Queries</span><span class="detail-value">' + out.total_queries + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">Original</span><span class="detail-value">' + escapeHtml(out.original) + '</span></div>';
                     if (out.variants && out.variants.length > 0) {

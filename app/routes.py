@@ -5,13 +5,20 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from src.embeddings import load_embedding_model, embed_query
-from src.retrieval import hybrid_search
+from src.retrieval import hybrid_search, terminology_search
 from src.reranking import rerank
 from src.llm import generate_answer
 from src.query_expansion import expand_query
 from src.guardrail import pre_filter, rerank_threshold_check, OOS_REFUSAL
 from src.supabase_utils import get_supabase_client
-from src.config import INITIAL_RETRIEVE_COUNT, RERANK_TOP_K, OOS_RERANK_THRESHOLD, MULTI_QUERY_ENABLED
+from src.config import (
+    INITIAL_RETRIEVE_COUNT,
+    MULTI_QUERY_ENABLED,
+    OOS_RERANK_THRESHOLD,
+    QUERY_EXPANSION_MODEL,
+    QUERY_EXPANSION_PROVIDER,
+    RERANK_TOP_K,
+)
 
 router = APIRouter()
 
@@ -75,6 +82,29 @@ def _retrieve_with_trace(client, model, queries: list[str]) -> tuple[list[dict],
     merged = []
     per_query = []
     total_returned = 0
+
+    if queries:
+        terminology_results = terminology_search(client, queries[0])
+        new_unique = 0
+        for chunk in terminology_results:
+            chunk_id = chunk.get("id")
+            if chunk_id not in seen_ids:
+                seen_ids.add(chunk_id)
+                merged.append(chunk)
+                new_unique += 1
+
+        if terminology_results:
+            total_returned += len(terminology_results)
+            per_query.append({
+                "label": "Terminology fallback",
+                "query_index": 0,
+                "query": queries[0],
+                "is_original": False,
+                "returned_count": len(terminology_results),
+                "new_unique_count": new_unique,
+                "duplicate_count": len(terminology_results) - new_unique,
+                "chunks": [_chunk_summary(c) for c in terminology_results[:5]],
+            })
 
     for index, query_text in enumerate(queries):
         query_embedding = embed_query(model, query_text)
@@ -254,6 +284,8 @@ async def pipeline_stream(req: ChatRequest):
             "time_ms": elapsed,
             "output": {
                 "enabled": MULTI_QUERY_ENABLED,
+                "provider": QUERY_EXPANSION_PROVIDER,
+                "model": QUERY_EXPANSION_MODEL,
                 "original": question,
                 "variants": queries[1:] if len(queries) > 1 else [],
                 "total_queries": len(queries),
