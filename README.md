@@ -14,6 +14,8 @@ A Retrieval-Augmented Generation (RAG) system for querying the Australian Inform
 
 Built as a university capstone project across three development sprints for AI Studio (University of Technology Sydney).
 
+Sprint 3 extends the baseline RAG system with multi-query expansion, a two-stage out-of-scope guardrail, threshold-calibrated reranking, a live Pipeline Explorer, an evaluations dashboard, and a Hugging Face Spaces deployment workflow.
+
 ## Project Structure
 
 ```
@@ -66,10 +68,10 @@ ism-cyberrag/
 | Vector Database | Supabase + pgvector (HNSW + GIN indexes) |
 | Search | Hybrid: BM25 full-text + vector similarity + Reciprocal Rank Fusion |
 | Reranking | cross-encoder/ms-marco-MiniLM-L-6-v2 |
-| Query Expansion | Multi-query via Llama 3.1 (3 alternate phrasings) |
+| Query Expansion | Multi-query via Llama 3.1 (local Ollama for notebooks, Groq for hosted demo) |
 | OOS Guardrail | Two-stage: keyword pre-filter + rerank score threshold |
 | LLM | Llama 3.1 8B via Groq API |
-| Web App | FastAPI + Jinja2 templates |
+| Web App | FastAPI + Jinja2 templates, SSE Pipeline Explorer, web-only cache controls |
 | Evaluation | RAGAS (5 metrics) |
 | Experiment Tracking | ClearML |
 | CI/CD | GitHub Actions (lint, smoke test, Docker build, HF Spaces deploy) |
@@ -155,7 +157,7 @@ User question
 |--------|---------------|
 | Sprint 1 | Baseline RAG: fixed-size chunking (1000 char), vector-only search, Llama 3.1 via Groq |
 | Sprint 2 | ISM-aware chunking (643 chunks), hybrid search (BM25 + vector + RRF), cross-encoder reranking, FastAPI web app |
-| Sprint 3 | Multi-query expansion, two-stage OOS guardrail, pipeline explorer, evaluations dashboard, CI/CD, HF Spaces deployment |
+| Sprint 3 | Multi-query expansion, two-stage OOS guardrail, threshold calibration, pipeline explorer, evaluations dashboard, web demo caching, CI/CD, HF Spaces deployment |
 
 ## CI/CD
 
@@ -180,13 +182,19 @@ See `docs/sprint-3/DEPLOYMENT_GUIDE.md` for full setup instructions.
 The evaluation dataset (`evaluations/eval_questions.json`) contains 100 questions across five categories:
 - Easy (30), Medium (30), Hard (20), Very Hard (10), Out of Scope (10)
 
-| Metric | Sprint 1 | Sprint 2 | Sprint 3 Target |
-|--------|----------|----------|-----------------|
-| Faithfulness | 0.6834 | 0.7341 | > 0.78 |
-| Answer Relevancy | 0.7216 | 0.7678 | > 0.82 |
-| Context Precision | 0.7885 | 0.8598 | > 0.85 |
-| Context Recall | 0.8224 | 0.8659 | > 0.91 |
-| Answer Similarity | N/A | 0.9057 | > 0.93 |
+Final evaluation results:
+
+| Metric | Sprint 1 | Sprint 2 | Sprint 3 |
+|--------|----------|----------|----------|
+| Faithfulness | 0.6834 | 0.7341 | 0.8395 |
+| Answer Relevancy | 0.7216 | 0.7678 | 0.8882 |
+| Context Precision | 0.7885 | 0.8598 | 0.8554 |
+| Context Recall | 0.8224 | 0.8659 | 0.9166 |
+| Answer Similarity | N/A | 0.9057 | 0.9109 |
+
+Sprint 3 improves faithfulness, answer relevancy, context recall, and answer similarity over Sprint 2. Context precision remains close to Sprint 2 while staying strong enough for the final system, reflecting the deliberate Sprint 3 tradeoff: retrieve more supporting context through multi-query expansion while using reranking and guardrails to control quality.
+
+The Sprint 3 run also produced 10 out-of-scope refusals through the guardrail path. Final CSV and chart outputs are stored under `evaluations/sprint-3/`.
 
 ## Team
 
