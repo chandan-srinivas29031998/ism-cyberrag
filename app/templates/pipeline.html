@@ -510,6 +510,7 @@
         function formatText(text) {
             if (!text) return "";
             return text.split('\n\n').map(function(p) {
+                p = escapeHtml(p);
                 p = p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 return '<p>' + p + '</p>';
             }).join('');
@@ -672,8 +673,19 @@
                         '<div class="detail-row"><span class="detail-label">Before Dedupe</span><span class="detail-value">' + (out.candidates_before_dedupe || out.candidates_returned) + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">After Dedupe</span><span class="detail-value">' + (out.candidates_after_dedupe || out.candidates_returned) + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">Parallel Search</span><span class="detail-value">' + (out.parallel_enabled ? 'Yes' : 'No') + '</span></div>' +
+                        '<div class="detail-row"><span class="detail-label">Parallel Used</span><span class="detail-value">' + (out.parallel_used ? 'Yes' : 'No') + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">Cache</span><span class="detail-value">' + (out.cache_enabled ? 'Enabled' : 'Disabled') + '</span></div>' +
                         '<div class="detail-row"><span class="detail-label">RRF k</span><span class="detail-value">' + out.rrf_k + '</span></div>';
+                    if (out.control_ids_requested && out.control_ids_requested.length > 0) {
+                        detail += '<div class="detail-row"><span class="detail-label">Control IDs</span><span class="detail-value">' + escapeHtml(out.control_ids_requested.join(', ')) + '</span></div>';
+                    }
+                    if (out.warnings && out.warnings.length > 0) {
+                        detail += '<div class="detail-row"><span class="detail-label">Warnings</span><span class="detail-value"><ul class="variant-list">';
+                        out.warnings.forEach(function(w) {
+                            detail += '<li>' + escapeHtml(w) + '</li>';
+                        });
+                        detail += '</ul></span></div>';
+                    }
                     detail += buildPerQueryTrace(out.per_query);
                     detail += '<div class="detail-row"><span class="detail-label">Merged Pool</span><span class="detail-value">First 10 deduplicated candidates</span></div>';
                     detail += buildChunkTable(out.chunks, [
@@ -760,6 +772,12 @@
                 '<span class="summary-time">' + data.total_time_ms + 'ms total</span>';
 
             stepsContainer.appendChild(bar);
+            if (isBlocked && data.answer) {
+                var answer = document.createElement('div');
+                answer.className = 'answer-block';
+                answer.innerHTML = formatText(data.answer);
+                stepsContainer.appendChild(answer);
+            }
         }
 
         async function runPipeline(question, multiQuery) {

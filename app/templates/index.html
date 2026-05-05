@@ -47,7 +47,7 @@
                 <h2>Search the ISM Knowledge Base</h2>
                 <form id="search-form" class="search-form">
                     <input type="text" id="question" class="search-input"
-                           placeholder="e.g., How do I configure a Cisco ASA firewall for IPsec?"
+                           placeholder="e.g., What does the ISM say about protecting data at rest?"
                            autocomplete="off" required>
                     <button type="submit" id="submit-btn" class="btn-submit">
                         <span id="btn-text">Search</span>
@@ -112,9 +112,16 @@
         function formatText(text) {
             if (!text) return "";
             return text.split('\n\n').map(p => {
+                p = escapeHtml(p);
                 p = p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 return `<p>${p}</p>`;
             }).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         form.addEventListener('submit', async (e) => {
@@ -150,7 +157,17 @@
                     data.query_variants.forEach((q, i) => {
                         const li = document.createElement('li');
                         li.textContent = q;
-                        if (i === 0) li.innerHTML = `<strong>${q}</strong> <span class="tag control">original</span>`;
+                        if (i === 0) {
+                            const strong = document.createElement('strong');
+                            strong.textContent = q;
+                            const tag = document.createElement('span');
+                            tag.className = 'tag control';
+                            tag.textContent = 'original';
+                            li.textContent = '';
+                            li.appendChild(strong);
+                            li.appendChild(document.createTextNode(' '));
+                            li.appendChild(tag);
+                        }
                         expansionList.appendChild(li);
                     });
                     expansionCount.textContent = data.query_variants.length;
@@ -159,8 +176,16 @@
 
                 // Display guardrail badge if blocked
                 if (data.guardrail_stage) {
-                    const stage = data.guardrail_stage === 'pre_filter' ? 'Pre-Filter' : 'Rerank Threshold';
-                    guardrailBadge.innerHTML = `Blocked by OOS Guardrail: ${stage}`;
+                    const labels = {
+                        pre_filter: 'Pre-Filter',
+                        rerank_threshold: 'Rerank Threshold',
+                        query_specificity: 'Needs More Detail',
+                        retrieval_empty: 'Retrieval Empty',
+                        control_id_lookup: 'Control ID Lookup',
+                        error: 'Pipeline Error',
+                    };
+                    const stage = labels[data.guardrail_stage] || data.guardrail_stage;
+                    guardrailBadge.textContent = `Pipeline status: ${stage}`;
                     guardrailBadge.style.display = 'block';
                 }
 
@@ -177,8 +202,8 @@
                         card.className = 'citation-card';
 
                         let tagsHtml = '';
-                        if (chunk.control_id) tagsHtml += `<span class="tag control">${chunk.control_id}</span>`;
-                        if (chunk.category) tagsHtml += `<span class="tag category">${chunk.category}</span>`;
+                        if (chunk.control_id) tagsHtml += `<span class="tag control">${escapeHtml(chunk.control_id)}</span>`;
+                        if (chunk.category) tagsHtml += `<span class="tag category">${escapeHtml(chunk.category)}</span>`;
 
                         let scoresHtml = chunk.rerank_score != null
                             ? `Rerank Score: <strong>${chunk.rerank_score.toFixed(3)}</strong>`
@@ -187,7 +212,7 @@
                         card.innerHTML = `
                             <div class="citation-meta">${tagsHtml}</div>
                             <div class="citation-scores">${scoresHtml}</div>
-                            <div class="citation-text" title="${chunk.content}">${chunk.content}</div>
+                            <div class="citation-text" title="${escapeHtml(chunk.content || '')}">${escapeHtml(chunk.content || '')}</div>
                         `;
                         citationsList.appendChild(card);
                     });
@@ -198,7 +223,7 @@
                 }
 
             } catch (err) {
-                answerText.innerHTML = `<p style="color:red">Failed to connect: ${err.message}</p>`;
+                answerText.innerHTML = `<p style="color:red">Failed to connect: ${escapeHtml(err.message)}</p>`;
                 answerSection.style.display = 'block';
             } finally {
                 btnText.style.display = 'inline-block';
