@@ -33,15 +33,19 @@ def run_ragas_evaluation(
     Args:
         eval_dataset: List of dicts with 'question' and 'ground_truth'.
         retrieve_fn:  callable(question: str) -> list[dict]  (each dict has 'content').
+                      It may also return (chunks, metadata) for guardrail details.
         generate_fn:  callable(question: str, chunks: list[dict]) -> str.
 
     Returns:
         List of result dicts with keys:
         question, ground_truth, answer, contexts,
-        retrieval_time_s, generation_time_s, total_time_s.
+        retrieval_time_s, generation_time_s, total_time_s,
+        max_rerank_score, guardrail_stage, query_variants.
     """
     results = []
     total = len(eval_dataset)
+
+    max_retries = 3
 
     for i, item in enumerate(eval_dataset, 1):
         question = item["question"]
@@ -51,34 +55,64 @@ def run_ragas_evaluation(
         generation_time = 0.0
 
         max_rerank_score = 0.0
+        guardrail_stage = None
+        pre_filter_reason = None
+        query_variants = []
+        contexts = []
+        answer = ""
 
-        try:
-            # Retrieve (timed)
-            t0 = time.time()
-            chunks = retrieve_fn(question)
-            retrieval_time = time.time() - t0
-            contexts = [c["content"] for c in chunks]
+        for attempt in range(1, max_retries + 1):
+            try:
+                # Retrieve (timed)
+                t0 = time.time()
+                retrieved = retrieve_fn(question)
+                retrieval_time = time.time() - t0
 
-            # Capture max rerank score for threshold analysis
-            if chunks:
-                max_rerank_score = max(
-                    c.get("rerank_score", 0.0) for c in chunks
-                )
+                retrieval_meta = {}
+                if isinstance(retrieved, tuple) and len(retrieved) == 2:
+                    chunks, retrieval_meta = retrieved
+                else:
+                    chunks = retrieved
 
-            # Generate (timed)
-            t0 = time.time()
-            answer = generate_fn(question, chunks)
-            generation_time = time.time() - t0
-        except Exception as e:
-            print(f"  [{i}/{total}] ERROR: {e}")
-            contexts = []
-            answer = f"Error: {e}"
+                contexts = [c["content"] for c in chunks]
+                guardrail_stage = retrieval_meta.get("guardrail_stage")
+                pre_filter_reason = retrieval_meta.get("pre_filter_reason")
+                query_variants = retrieval_meta.get("query_variants", [])
+
+                # Capture max rerank score for threshold analysis
+                if "max_rerank_score" in retrieval_meta:
+                    max_rerank_score = float(retrieval_meta["max_rerank_score"])
+                elif chunks:
+                    max_rerank_score = max(
+                        c.get("rerank_score", 0.0) for c in chunks
+                    )
+
+                # Generate (timed)
+                t0 = time.time()
+                answer = generate_fn(question, chunks)
+                generation_time = time.time() - t0
+                break
+            except Exception as e:
+                if attempt < max_retries:
+                    wait = 2 ** attempt
+                    print(f"  [{i}/{total}] Attempt {attempt} failed: {e}. Retrying in {wait}s...")
+                    time.sleep(wait)
+                else:
+                    print(f"  [{i}/{total}] ERROR after {max_retries} attempts: {e}")
+                    contexts = []
+                    answer = f"Error: {e}"
+                    guardrail_stage = "error"
+                    pre_filter_reason = None
 
         results.append({
             "question": question,
             "ground_truth": ground_truth,
             "answer": answer,
             "contexts": contexts,
+            "category": item.get("category", "unknown"),
+            "guardrail_stage": guardrail_stage,
+            "pre_filter_reason": pre_filter_reason,
+            "query_variants": query_variants,
             "retrieval_time_s": round(retrieval_time, 4),
             "generation_time_s": round(generation_time, 4),
             "total_time_s": round(retrieval_time + generation_time, 4),
@@ -156,8 +190,8 @@ def compute_ragas_scores(eval_results: list[dict]) -> tuple[dict, "pd.DataFrame"
     ragas_dataset = Dataset.from_dict(ragas_data)
 
     # ── Evaluate (sequential with retries to avoid timeouts) ──
-    run_cfg = RunConfig(max_workers=1, max_retries=3, max_wait=120)
-    print("Computing RAGAS metrics (sequential, max_retries=3)...")
+    run_cfg = RunConfig(max_workers=1, max_retries=5, max_wait=300)
+    print("Computing RAGAS metrics (sequential, max_retries=5, timeout=300s)...")
     result = evaluate(
         ragas_dataset,
         metrics=[faithfulness, answer_relevancy, context_precision, context_recall, answer_similarity],
@@ -172,20 +206,60 @@ def compute_ragas_scores(eval_results: list[dict]) -> tuple[dict, "pd.DataFrame"
     else:
         ragas_df = pd.DataFrame([dict(result)])
 
-    # Merge latency data from eval_results into the RAGAS DataFrame
-    latency_df = pd.DataFrame([{
+    # Merge latency and category data from eval_results into the RAGAS DataFrame
+    def is_oos_refusal(result: dict) -> bool:
+        if result.get("category") != "out_of_scope":
+            return False
+
+        answer = str(result.get("answer", "")).strip().lower()
+        return (
+            "outside the scope" in answer
+            and "ism" in answer
+            and "enough information" in answer
+        )
+
+    extra_df = pd.DataFrame([{
+        "category": r.get("category", "unknown"),
+        "is_oos_refusal": is_oos_refusal(r),
+        "guardrail_stage": r.get("guardrail_stage"),
+        "pre_filter_reason": r.get("pre_filter_reason"),
+        "query_variants": r.get("query_variants", []),
         "retrieval_time_s": r.get("retrieval_time_s", 0),
         "generation_time_s": r.get("generation_time_s", 0),
         "total_time_s": r.get("total_time_s", 0),
         "max_rerank_score": r.get("max_rerank_score", 0),
     } for r in eval_results])
 
-    if len(latency_df) == len(ragas_df):
-        results_df = pd.concat([ragas_df, latency_df], axis=1)
+    if len(extra_df) == len(ragas_df):
+        results_df = pd.concat([ragas_df, extra_df], axis=1)
     else:
         results_df = ragas_df
 
-    # ── Compute average scores ──
+    # ── Handle NaN / misleading scores from correct OOS refusal answers ──
+    # RAGAS was designed for answer-from-context cases, not refusal answers:
+    #   - Faithfulness may be NaN because the refusal has zero factual claims.
+    #   - Answer Relevancy is often forced to 0.0 by the noncommittal detector.
+    #   - Context Recall may be NaN/low because there is no supporting context.
+    # For rows that are both labelled out_of_scope AND actually refused, set
+    # those refusal-specific metrics to 1.0. Do not adjust context_precision:
+    # irrelevant retrieved context should remain visible as retrieval noise.
+    # See: https://github.com/explodinggradients/ragas/issues/733
+    #      https://github.com/explodinggradients/ragas/issues/1651
+    if "is_oos_refusal" in results_df.columns:
+        refusal_mask = results_df["is_oos_refusal"].fillna(False).astype(bool)
+    else:
+        refusal_mask = pd.Series(False, index=results_df.index)
+
+    oos_refusal_fills = {"faithfulness": 1.0, "answer_relevancy": 1.0, "context_recall": 1.0}
+    for col, fill_val in oos_refusal_fills.items():
+        if col in results_df.columns:
+            adjust_mask = refusal_mask & (results_df[col].isna() | (results_df[col] < fill_val))
+            adjust_count = int(adjust_mask.sum())
+            if adjust_count > 0:
+                results_df.loc[adjust_mask, col] = fill_val
+                print(f"  Set {adjust_count} {col} scores to {fill_val} for correct OOS refusals.")
+
+    # ── Compute average scores (all questions) ──
     metric_cols = ["faithfulness", "answer_relevancy", "context_precision", "context_recall", "answer_similarity"]
     score_dict = {}
     for col in metric_cols:
@@ -197,9 +271,31 @@ def compute_ragas_scores(eval_results: list[dict]) -> tuple[dict, "pd.DataFrame"
         if col in results_df.columns:
             score_dict[f"avg_{col}"] = float(results_df[col].mean())
 
-    print("\n══════ RAGAS Evaluation Results ══════")
+    print("\n══════ RAGAS Evaluation Results (All 100 Questions) ══════")
     for name, score in score_dict.items():
         print(f"  {name:25s} {score:.4f}")
+
+    # ── In-scope vs OOS breakdown ──
+    if "category" in results_df.columns:
+        is_oos = results_df["category"] == "out_of_scope"
+        inscope_df = results_df[~is_oos]
+        oos_df = results_df[is_oos]
+
+        if len(inscope_df) > 0:
+            print(f"\n══════ In-Scope Only ({len(inscope_df)} questions) ══════")
+            for col in metric_cols:
+                if col in inscope_df.columns:
+                    val = float(inscope_df[col].mean())
+                    score_dict[f"inscope_{col}"] = val
+                    print(f"  {col:25s} {val:.4f}")
+
+        if len(oos_df) > 0:
+            print(f"\n══════ Out-of-Scope Only ({len(oos_df)} questions) ══════")
+            for col in metric_cols:
+                if col in oos_df.columns:
+                    val = float(oos_df[col].mean())
+                    score_dict[f"oos_{col}"] = val
+                    print(f"  {col:25s} {val:.4f}")
 
     return score_dict, results_df
 

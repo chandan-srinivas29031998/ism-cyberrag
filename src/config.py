@@ -34,7 +34,10 @@ EVAL_LLM_MODEL = os.getenv("EVAL_LLM_MODEL", "llama3.1:8b")
 #   CLEARML_API_HOST, CLEARML_WEB_HOST, CLEARML_FILES_HOST
 # No need to reference them in code. Just set them in .env.
 CLEARML_PROJECT = "ISM-CyberRAG"
-CLEARML_TASK = "Sprint 2 - ISM-Aware Chunking + Hybrid Search + Reranking"
+CLEARML_TASK = os.getenv(
+    "CLEARML_TASK",
+    "Sprint 3 - Multi-Query + OOS Guardrail + Deployment",
+)
 
 # ── Embedding Models ─────────────────────────────────────
 EMBEDDING_MODEL_NAME = "nomic-ai/nomic-embed-text-v1.5"
@@ -56,6 +59,17 @@ RRF_K = 50              # RRF constant (as per sprint 2 plan)
 # ── Sprint 2: Cross-Encoder Reranking ────────────────────
 RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 RERANK_TOP_K = 5        # keep top-k after reranking
+
+# ── Sprint 3: Multi-Query Expansion ─────────────────────
+MULTI_QUERY_ENABLED = os.getenv("MULTI_QUERY_ENABLED", "true").lower() == "true"
+MULTI_QUERY_COUNT = int(os.getenv("MULTI_QUERY_COUNT", "3"))
+QUERY_EXPANSION_PROVIDER = os.getenv("QUERY_EXPANSION_PROVIDER", "ollama").lower()
+QUERY_EXPANSION_MODEL = os.getenv("QUERY_EXPANSION_MODEL", EVAL_LLM_MODEL)
+QUERY_EXPANSION_RETRIES = int(os.getenv("QUERY_EXPANSION_RETRIES", "2"))
+
+# ── Sprint 3: OOS Guardrail ─────────────────────────────
+OOS_PRE_FILTER_ENABLED = os.getenv("OOS_PRE_FILTER_ENABLED", "true").lower() == "true"
+OOS_RERANK_THRESHOLD = float(os.getenv("OOS_RERANK_THRESHOLD", "-5.0"))
 
 # ── Paths ─────────────────────────────────────────────────
 PROJECT_ROOT = str(_project_root)

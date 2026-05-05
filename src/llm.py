@@ -1,15 +1,65 @@
+import re
+
 from src.config import GROQ_API_KEY, LLM_MODEL_NAME, LLM_PROVIDER, OLLAMA_BASE_URL
+from src.guardrail import OOS_REFUSAL
 
 # System prompt for the ISM CyberRAG assistant
-SYSTEM_PROMPT = """You are an expert assistant on the Australian Information Security Manual (ISM).
-Your goal is to provide helpful, accurate, and concise answers based on the provided ISM context.
+SYSTEM_PROMPT = f"""You are an assistant that answers questions about the Australian Information Security Manual (ISM). You must answer using ONLY the context chunks provided below. Do not use any outside knowledge.
 
 Rules:
-1. Use ONLY the provided context to answer. If the context contains information related to the topic but not a direct answer, summarize what is available and note any missing specifics.
-2. If the topic is entirely absent from the context (e.g., product pricing, coding tutorials, or non-ISM topics), respond with: "I don't have enough information from the ISM documents to answer this. This topic is outside the scope of the ISM."
-3. Always cite specific ISM control IDs (e.g., ISM-1234) when they appear in the context you use.
-4. If multiple guidelines or controls are relevant, group them logically.
-5. Be professional, factual, and do not make up information."""
+1. Every factual claim in your answer MUST be directly supported by one of the provided context chunks. If a chunk contains the information, cite its ISM control ID in parentheses, for example: (ISM-1234). Do not state anything that is not in the provided context.
+2. If the context chunks do not contain enough information to answer the question, say exactly: "{OOS_REFUSAL}" Do not guess or speculate.
+3. Keep your answer concise and direct. Answer only what the question asks. Do not add tangential controls, implementation details, or background unless the question explicitly asks for them.
+4. When multiple ISM controls are relevant, synthesize them into a coherent answer and cite each control ID. Group related controls together rather than listing them one by one without explanation.
+5. Do not fabricate control IDs. Only cite IDs that appear in the provided context chunks.
+6. Never cite "(ISM-None)", "(None)", or "(N/A)". If a relevant chunk has no control ID, describe the guideline or definition without a parenthetical control citation.
+7. For definition questions, prefer the exact definition wording from the context. Check all chunks, including Cyber security terminology chunks, before refusing.
+8. For multi-part questions, answer under the same parts asked by the question and keep each part limited to the strongest directly relevant controls."""
+
+
+def _valid_control_ids(context_chunks: list[dict]) -> set[str]:
+    """Return all ISM control IDs explicitly present in the supplied context."""
+    valid = set()
+    for chunk in context_chunks:
+        control_id = chunk.get("control_id")
+        if isinstance(control_id, str) and re.fullmatch(r"ISM-\d{4}", control_id):
+            valid.add(control_id)
+        valid.update(re.findall(r"\bISM-\d{4}\b", chunk.get("content", "")))
+    return valid
+
+
+def _sanitize_citations(answer: str, context_chunks: list[dict]) -> str:
+    """
+    Remove malformed or unsupported parenthetical ISM citations.
+
+    The LLM can still emit strings such as (ISM-None) or
+    (ISM-Cyber security terminology 10). We keep only real ISM control IDs
+    that appear in the retrieved context.
+    """
+    valid_controls = _valid_control_ids(context_chunks)
+
+    def replace_ism_parenthetical(match: re.Match) -> str:
+        citation_text = match.group(1)
+        cited_controls = re.findall(r"\bISM-\d{4}\b", citation_text)
+        if not cited_controls:
+            return ""
+
+        kept = []
+        for control in cited_controls:
+            if control in valid_controls and control not in kept:
+                kept.append(control)
+
+        if not kept:
+            return ""
+        if len(kept) == len(cited_controls):
+            return match.group(0)
+        return f"({', '.join(kept)})"
+
+    cleaned = re.sub(r"\(([^)]*\bISM-[^)]*)\)", replace_ism_parenthetical, answer)
+    cleaned = re.sub(r"\s*\((?:ISM-)?(?:None|N/A|null)\)", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"\s+([.,;:])", r"\1", cleaned)
+    return cleaned.strip()
 
 
 def generate_answer(question: str, context_chunks: list[dict]) -> str:
@@ -27,7 +77,7 @@ def generate_answer(question: str, context_chunks: list[dict]) -> str:
     # Build context block from retrieved chunks
     context_parts = []
     for i, chunk in enumerate(context_chunks, 1):
-        control = chunk.get("control_id", "N/A")
+        control = chunk.get("control_id") or "N/A"
         category = chunk.get("category", "")
         sim = chunk.get("similarity", "")
         header = f"[Chunk {i}] Control: {control}"
@@ -59,7 +109,7 @@ Question: {question}"""
             messages=messages,
             temperature=0.1,
         )
-        return response.choices[0].message.content
+        return _sanitize_citations(response.choices[0].message.content, context_chunks)
         
     else: # Default to Groq
         if not GROQ_API_KEY:
@@ -74,4 +124,4 @@ Question: {question}"""
             temperature=0.1,
             max_tokens=1024,
         )
-        return response.choices[0].message.content
+        return _sanitize_citations(response.choices[0].message.content, context_chunks)
