@@ -1,6 +1,6 @@
 Metric,Sprint 1,Sprint 2,Sprint 3,Change vs Sprint 2,Stretch target,Target Met
-faithfulness,0.6834,0.7341,0.8395,+0.1054,> 0.78,True
-answer_relevancy,0.7216,0.7678,0.8882,+0.1204,> 0.82,True
-context_precision,0.7885,0.8598,0.8554,-0.0044,> 0.85,True
-context_recall,0.8224,0.8659,0.9166,+0.0507,> 0.91,True
-answer_similarity,N/A,0.9057,0.9109,+0.0052,> 0.93,False
+faithfulness,0.6834,0.7341,0.8351,+0.1010,> 0.78,True
+answer_relevancy,0.7216,0.7678,0.9078,+0.1400,> 0.82,True
+context_precision,0.7885,0.8598,0.8590,-0.0008,> 0.85,True
+context_recall,0.8224,0.8659,0.9249,+0.0590,> 0.91,True
+answer_similarity,N/A,0.9057,0.9179,+0.0122,> 0.93,False

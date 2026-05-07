@@ -7,7 +7,6 @@ CHUNK_SELECT_COLUMNS = (
     "id,content,control_id,category,sub_topic,applicability,essential_8,revision"
 )
 
-
 def _definition_terms(question: str) -> list[str]:
     """Extract likely glossary terms from definition-style questions."""
     cleaned = question.strip().rstrip("?.!")
@@ -26,7 +25,7 @@ def _definition_terms(question: str) -> list[str]:
             continue
 
         term = match.group(1).strip()
-        term = re.sub(r"\b(in|within|according to)\b.*$", "", term, flags=re.IGNORECASE).strip()
+        term = re.sub(r"\b(in|within|under|according to)\b.*$", "", term, flags=re.IGNORECASE).strip()
         term = re.sub(r"\s+", " ", term)
         if term:
             terms.append(term)
@@ -43,13 +42,91 @@ def _definition_terms(question: str) -> list[str]:
     return deduped
 
 
+def _control_ids(question: str) -> list[str]:
+    """Extract exact ISM control IDs from a question."""
+    controls = []
+    for match in re.findall(r"\bISM-\d{4}\b", question, flags=re.IGNORECASE):
+        control = match.upper()
+        if control not in controls:
+            controls.append(control)
+    return controls
+
+
+def control_ids_from_question(question: str) -> list[str]:
+    """Public wrapper for exact ISM control ID extraction."""
+    return _control_ids(question)
+
+
+def _focus_terminology_content(content: str, term: str, window: int = 1200) -> str:
+    """Trim large glossary chunks around the matched term so reranking sees the definition."""
+    if not content:
+        return content
+
+    match = re.search(re.escape(term), content, flags=re.IGNORECASE)
+    if not match:
+        return content
+
+    start = max(0, match.start() - 250)
+    end = min(len(content), match.end() + window)
+
+    next_heading = re.search(r"\n[A-Za-z][A-Za-z0-9 /()-]{1,80}\n", content[match.end() : end])
+    if next_heading:
+        end = match.end() + next_heading.start()
+
+    focused = content[start:end].strip()
+    if start > 0:
+        focused = "... " + focused
+    if end < len(content):
+        focused += " ..."
+    return focused
+
+
+def control_id_search(client, question: str) -> list[dict]:
+    """Fetch chunks that explicitly match requested ISM control IDs."""
+    results = []
+    seen_ids = set()
+
+    for control_id in _control_ids(question):
+        responses = [
+            (
+                client.table("chunks")
+                .select(CHUNK_SELECT_COLUMNS)
+                .eq("control_id", control_id)
+                .execute()
+            ),
+            (
+                client.table("chunks")
+                .select(CHUNK_SELECT_COLUMNS)
+                .ilike("content", f"%{control_id}%")
+                .execute()
+            ),
+        ]
+
+        for response in responses:
+            for row in response.data or []:
+                chunk_id = row.get("id")
+                if chunk_id in seen_ids:
+                    continue
+                seen_ids.add(chunk_id)
+                if control_id in (row.get("content") or ""):
+                    row["control_id"] = control_id
+                else:
+                    row["control_id"] = row.get("control_id") or control_id
+                row["_retrieval_pin"] = "control_id"
+                row.setdefault("similarity", 1.0)
+                row.setdefault("rrf_score", 1.0)
+                results.append(row)
+
+    return results
+
+
 def terminology_search(client, question: str, limit: int = 2) -> list[dict]:
     """
     Fetch glossary chunks for definition-style questions.
 
     Hybrid/vector retrieval can miss glossary definitions because terminology
-    chunks contain many compact definitions. This read-only fallback only runs
-    for definition-like questions and lets the cross-encoder decide whether the
+    chunks contain many compact definitions. This read-only fallback pins likely
+    glossary candidates and lets the cross-encoder decide whether the
     glossary chunk belongs in the final context.
     """
     results = []
@@ -70,6 +147,9 @@ def terminology_search(client, question: str, limit: int = 2) -> list[dict]:
             if chunk_id in seen_ids:
                 continue
             seen_ids.add(chunk_id)
+            if row.get("content"):
+                row["content"] = _focus_terminology_content(row["content"], term)
+            row["_retrieval_pin"] = "terminology"
             row.setdefault("similarity", 0.0)
             row.setdefault("rrf_score", 0.0)
             results.append(row)
@@ -136,6 +216,12 @@ def multi_query_retrieve(
     merged = []
 
     if queries:
+        for chunk in control_id_search(client, queries[0]):
+            chunk_id = chunk.get("id")
+            if chunk_id not in seen_ids:
+                seen_ids.add(chunk_id)
+                merged.append(chunk)
+
         for chunk in terminology_search(client, queries[0]):
             chunk_id = chunk.get("id")
             if chunk_id not in seen_ids:

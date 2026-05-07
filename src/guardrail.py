@@ -7,6 +7,12 @@ OOS_REFUSAL = (
     "This question is outside the scope of the Australian Information Security Manual (ISM)."
 )
 
+QUERY_CLARIFICATION_RESPONSE = (
+    "This question is too broad for a precise ISM answer. Please ask about a specific "
+    "topic such as data security, privileged access, backups, patching, data transfers, "
+    "physical security, or a specific ISM control ID."
+)
+
 DENY_PATTERNS = [
     re.compile(p, re.IGNORECASE)
     for p in [
@@ -44,6 +50,8 @@ DENY_PATTERNS = [
         # Creative writing
         r"\bwrite me a (poem|story|essay|song|letter)\b",
         r"\bwrite a (poem|story|essay|song|letter)\b",
+        r"\btell me a .*story\b",
+        r"\bbedtime story\b",
         r"\btell me a joke\b",
         r"\bjoke\b",
         r"\bfunny\b",
@@ -68,6 +76,8 @@ DENY_PATTERNS = [
         r"\bvacation\b",
         # Weather
         r"\bweather (forecast|today|tomorrow)\b",
+        r"\bwhat(?:'s| is) the weather\b",
+        r"\bweather in\b",
         r"\btemperature in\b",
         # Education unrelated
         r"\bhomework help\b",
@@ -96,9 +106,8 @@ DENY_PATTERNS = [
         r"\bjavascript tutorial\b",
         r"\bcss tutorial\b",
         # Vendor/tool-specific implementation details outside ISM guidance
-        r"\b(cisco|juniper|asr\s*9000)\b",
-        r"\bcisco asa\b",
-        r"\bbgp route reflectors?\b",
+        r"\b(configure|configuration|commands?|cli|troubleshoot|set up|setup)\b.*\b(cisco|juniper|asr\s*9000|cisco asa|bgp)\b",
+        r"\b(cisco|juniper|asr\s*9000|cisco asa|bgp)\b.*\b(configure|configuration|commands?|cli|troubleshoot|set up|setup)\b",
         r"\bregistry keys?\b",
         r"\b(group policy object|gpo)\b",
         r"\bpython commands?\b",
@@ -111,6 +120,11 @@ DENY_PATTERNS = [
         r"\bsource code for an exploit\b",
         r"\bexploit targeting\b",
         r"\blog4shell\b",
+        r"\b(how\s+(do|can)\s+i|help me|steps? to|instructions? to)\s+(hack|break into|get into)\b",
+        r"\b(how\s+(do|can)\s+i|help me|steps? to|instructions? to)\s+hide (my )?(activity|tracks)\b",
+        r"\b(how\s+(do|can)\s+i|help me|steps? to|instructions? to)\s+cover (my )?tracks\b",
+        r"\b(how\s+(do|can)\s+i|help me|steps? to|instructions? to)\s+avoid (detection|monitoring|logging)\b",
+        r"\b(how\s+(do|can)\s+i|help me|steps? to|instructions? to)\s+bypass (mfa|multi-factor|authentication|access control|logging|monitoring)\b",
         r"\bnist sp 800-53\b",
         r"\biso/iec 27001\b",
         r"\bamerican healthcare provider\b",
@@ -157,6 +171,9 @@ ALLOW_SIGNALS = [
     "compliance",
     "risk",
     "data protection",
+    "data security",
+    "data at rest",
+    "data in transit",
     "incident",
     "malware",
     "phishing",
@@ -223,7 +240,6 @@ ALLOW_SIGNALS = [
     "authoriz",
 ]
 
-
 def pre_filter(question: str) -> tuple[bool, str]:
     if not OOS_PRE_FILTER_ENABLED:
         return (True, "disabled")
@@ -238,6 +254,39 @@ def pre_filter(question: str) -> tuple[bool, str]:
             return (True, "topic_match")
 
     return (True, "uncertain")
+
+
+def query_specificity_check(question: str) -> str | None:
+    """Ask for clarification only when the user gives no concrete ISM topic."""
+    if re.search(r"\bISM-\d{4}\b", question, flags=re.IGNORECASE):
+        return None
+
+    tokens = re.findall(r"[a-z0-9-]+", question.lower())
+    stopwords = {
+        "a",
+        "an",
+        "and",
+        "about",
+        "for",
+        "in",
+        "is",
+        "it",
+        "of",
+        "on",
+        "the",
+        "to",
+        "what",
+        "does",
+        "do",
+        "should",
+        "say",
+    }
+    meaningful = [token for token in tokens if token not in stopwords]
+    generic = {"ism", "information", "cyber", "security", "guideline", "guidelines", "aspect", "aspects"}
+
+    if not meaningful or set(meaningful).issubset(generic):
+        return QUERY_CLARIFICATION_RESPONSE
+    return None
 
 
 def rerank_threshold_check(
