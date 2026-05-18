@@ -1,0 +1,37 @@
+{
+  "controller_task_id": "f40b8b498e874612855e79a9ddfc8faa",
+  "controller_task_url": "https://app.clear.ml/projects/8cc0565844234597add9563254af0f2e/experiments/f40b8b498e874612855e79a9ddfc8faa/output/log",
+  "completed_at_utc": "2026-05-18T14:14:36.740044+00:00",
+  "top_tasks": [
+    {
+      "task_id": "3c46cb21e674409b9cdafbea838b04a2",
+      "threshold": "-7.0",
+      "composite_score": 0.92093006993007,
+      "status": "completed"
+    },
+    {
+      "task_id": "c7261ecac94b4519a6fd44a299c07bd3",
+      "threshold": "-4.0",
+      "composite_score": 0.9196062271062271,
+      "status": "completed"
+    },
+    {
+      "task_id": "a8c9cc5fe2d2490b980def5a5ec7596e",
+      "threshold": "-3.0",
+      "composite_score": 0.9138333333333333,
+      "status": "completed"
+    },
+    {
+      "task_id": "9b82f031939a4f5b9d5f4a91e6362fab",
+      "threshold": "-6.0",
+      "composite_score": 0.9002676767676767,
+      "status": "completed"
+    },
+    {
+      "task_id": "f53f965c26b84863894bf03abba9d25e",
+      "threshold": "-5.0",
+      "composite_score": 0.89512994834686,
+      "status": "completed"
+    }
+  ]
+}

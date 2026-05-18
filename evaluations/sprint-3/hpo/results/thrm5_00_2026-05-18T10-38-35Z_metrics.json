@@ -1,0 +1,36 @@
+{
+  "threshold": -5.0,
+  "composite_score": 0.9226662810873336,
+  "composite_breakdown": {
+    "inscope_faithfulness": 0.8453325621746672,
+    "oos_block_rate": 1.0,
+    "oos_total_in_subset": 5.0,
+    "oos_blocked_count": 5.0
+  },
+  "ragas_metrics": {
+    "faithfulness": 0.7044438018122228,
+    "answer_relevancy": 0.7759764565245881,
+    "context_precision": 0.7962962962769846,
+    "context_recall": 0.7550324675324676,
+    "answer_similarity": 0.8884581384083577,
+    "avg_retrieval_time_s": 2.1880700000000006,
+    "avg_generation_time_s": 18.58047,
+    "avg_total_time_s": 20.768539999999998,
+    "avg_max_rerank_score": 3.7000900000000003,
+    "inscope_faithfulness": 0.8453325621746672,
+    "inscope_answer_relevancy": 0.9311717478295057,
+    "inscope_context_precision": 0.9555555555323815,
+    "inscope_context_recall": 0.9191699604743083,
+    "inscope_answer_similarity": 0.9110564308481994,
+    "oos_faithfulness": 0.0,
+    "oos_answer_relevancy": 0.0,
+    "oos_context_precision": 0.0,
+    "oos_context_recall": 0.0,
+    "oos_answer_similarity": 0.7754666762091499
+  },
+  "n_questions": 30,
+  "n_errors": 0,
+  "wall_clock_s": 623.0641961097717,
+  "task_id": "f08039e5899848bfb90a061f9b7a0ba6",
+  "timestamp_utc": "2026-05-18T10-38-35Z"
+}
