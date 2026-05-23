@@ -33,7 +33,7 @@ This is the main Sprint 3 UI addition. It lets users type a question and watch e
 
 **How it works technically:**
 
-The frontend sends a POST request to `/pipeline/stream` with the question. The backend processes the full pipeline and emits Server-Sent Events (SSE) as each step completes. The frontend uses the browser's native `EventSource` pattern to receive these events and render them as they arrive.
+The frontend sends a POST request to `/pipeline/stream` with the question. The backend processes the full pipeline and emits Server-Sent Events (SSE) as each step completes. The frontend uses `fetch()` with a streaming `ReadableStream` reader so it can send the question in the POST body and parse the SSE frames as they arrive.
 
 Each SSE event has a type (matching the pipeline step) and a JSON data payload containing the step name, execution time in milliseconds, and step-specific output.
 
@@ -57,7 +57,7 @@ Each card appears with an animation as its SSE event arrives. Cards show a statu
 
 **Why SSE instead of polling or WebSockets:**
 
-SSE is one-directional (server to client), which is exactly what we need here. The client sends one request and the server streams back events as processing happens. It works over standard HTTP, does not require a WebSocket upgrade, and is natively supported in all modern browsers via `EventSource`. For a sequential pipeline where each step depends on the previous one, SSE is simpler than WebSockets and more responsive than polling.
+SSE is one-directional (server to client), which is exactly what we need here. The client sends one request and the server streams back events as processing happens. It works over standard HTTP, does not require a WebSocket upgrade, and can be consumed from the streamed response body. For a sequential pipeline where each step depends on the previous one, SSE framing is simpler than WebSockets and more responsive than polling.
 
 
 ## Evaluations tab
@@ -75,6 +75,6 @@ The page has three sections:
 
 ## Technical notes
 
-The frontend uses no JavaScript frameworks. All three pages use vanilla JS with `fetch` for the chat endpoint and `EventSource` for the pipeline stream. Styling is vanilla CSS in `app/static/style.css`. Templates are Jinja2, rendered by FastAPI.
+The frontend uses no JavaScript frameworks. All three pages use vanilla JS with `fetch` for the chat endpoint and `fetch()` plus a `ReadableStream` reader for the pipeline stream. Styling is vanilla CSS in `app/static/style.css`. Templates are Jinja2, rendered by FastAPI.
 
 The backend routes are defined in `app/routes.py`. The `/chat` endpoint returns a JSON response. The `/pipeline/stream` endpoint returns a `StreamingResponse` with `text/event-stream` content type.

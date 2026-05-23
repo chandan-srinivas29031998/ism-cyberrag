@@ -6,7 +6,7 @@ These are the raw source PDFs before any parsing, chunking, or embedding. The in
 
 ## Document Set
 
-Files 01 through 25 are used. File 00 (the 255-page consolidated document) is not included because the individual guideline documents are more suitable for chunking and retrieval.
+Files 01 through 25 are used. File 00 (the consolidated document) is not included because the individual guideline documents are more suitable for chunking and retrieval and avoid duplicate content.
 
 | File | Document |
 |------|----------|
@@ -38,7 +38,7 @@ Files 01 through 25 are used. File 00 (the 255-page consolidated document) is no
 
 ## Source
 
-Published by the Australian Signals Directorate (ASD). Publicly available at https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/ism
+Published by the Australian Signals Directorate (ASD). Publicly available at https://www.cyber.gov.au/business-government/asds-cyber-security-frameworks/ism
 
 ## ISM Control Format
 
