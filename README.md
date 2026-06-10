@@ -264,6 +264,21 @@ Built as a university capstone project for AI Studio at the University of Techno
 
 Roles rotated each sprint (Product Owner, Data Engineer, Data Scientist) so each of us has held all three positions.
 
+## My Contributions
+
+I was a core contributor across all three sprints in two rotating roles:
+
+**Lead Data Engineer (Sprints 1–2)**
+- Designed and built the ISM-aware chunker — control boundary detection logic that produces 643 semantically coherent chunks from 25 PDFs
+- Built the embedding pipeline using nomic-embed-text-v1.5 and the Supabase/pgvector ingestion scripts
+- Implemented hybrid search with BM25 + vector similarity merged via Reciprocal Rank Fusion
+- Set up ClearML experiment tracking and the RAGAS evaluation harness (100-question dataset across Easy/Medium/Hard/Out-of-scope categories)
+
+**Product Owner (Sprints 3–4)**
+- Wrote acceptance criteria for the two-stage OOS guardrail (keyword pre-filter + rerank score threshold)
+- Drove the sprint planning and backlog prioritisation for query expansion, Pipeline Explorer, and Evaluations dashboard
+- Owned the RAGAS target definitions (Faithfulness > 0.78, Context Recall > 0.91, etc.) and signed off on sprint completion
+
 ## Acknowledgments
 
 - The **Australian Signals Directorate** for publishing the ISM under permissive terms.
